@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>termtrain — learn the command line & number systems</title>
+<style>
+  :root{
+    /* light, high-readability palette */
+    --bg:#F7F8FA;            /* page */
+    --panel:#FFFFFF;         /* cards */
+    --panel2:#EEF1F5;        /* inset / code chips */
+    --ink:#1B2230;           /* primary text */
+    --ink2:#475067;          /* secondary text */
+    --dim:#7A8295;           /* tertiary text */
+    --line:#D9DEE7;          /* borders */
+    --rail:#11203A;          /* sidebar (dark for contrast) */
+    --rail-ink:#E7ECF4;
+    --rail-dim:#9AA7BD;
+    --accent:#1F6FEB;        /* primary accent (blue) */
+    --accent-d:#1657c0;
+    --green:#138A5A;         /* correct / success */
+    --green-bg:#E4F6EC;
+    --amber:#9A6400;         /* warnings / eyebrows */
+    --amber-bg:#FBF1DA;
+    --red:#C0392B;           /* errors */
+    --red-bg:#FBE7E5;
+    --term-bg:#0E1726;       /* simulated terminal stays dark (it's a terminal) */
+    --term-ink:#E7ECF4;
+    --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  .frame{display:grid;grid-template-columns:260px 1fr;height:100vh;max-height:100vh}
+
+  /* sidebar */
+  .rail{background:var(--rail);color:var(--rail-ink);padding:18px 0;overflow-y:auto}
+  .brand{padding:0 18px 16px;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:12px}
+  .brand h1{font-size:17px;margin:0;letter-spacing:.3px;font-weight:800}
+  .brand h1 .c{color:#6FB1FF}
+  .brand .sub{color:var(--rail-dim);font-size:12px;margin-top:3px}
+  .path-list{padding:8px}
+  .path-list .group{color:var(--rail-dim);font-size:11px;letter-spacing:1px;text-transform:uppercase;padding:12px 10px 5px;user-select:none}
+  .stage-node{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:8px;position:relative;color:var(--rail-ink);cursor:default;font-size:14px}
+  .stage-node.clickable{cursor:pointer}
+  .stage-node.clickable:hover{background:rgba(255,255,255,.07)}
+  .stage-node.active{background:rgba(111,177,255,.16)}
+  .stage-node.active::before{content:"";position:absolute;left:0;top:7px;bottom:7px;width:3px;background:#6FB1FF;border-radius:2px}
+  .stage-node.locked{opacity:.45}
+  .stage-node .ic{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:rgba(255,255,255,.1);flex-shrink:0}
+  .stage-node.done .ic{background:var(--green);color:#fff}
+  .stage-node.active .ic{background:#6FB1FF;color:#0E1726}
+  .stage-node .lbl{flex:1}
+  .stage-node .mark{font-size:11px;color:var(--rail-dim)}
+  .stage-node.done .mark{color:#7FE0AE}
+
+  /* topbar */
+  .main{display:flex;flex-direction:column;overflow:hidden}
+  .topbar{display:flex;align-items:center;gap:20px;padding:14px 24px;border-bottom:1px solid var(--line);background:var(--panel)}
+  .stat{display:flex;align-items:baseline;gap:6px}
+  .stat b{font-size:17px;font-weight:800}
+  .stat .lbl{color:var(--dim);font-size:12px}
+  .stat.xp b{color:var(--accent)}
+  .stat.streak b{color:var(--amber)}
+  .topbar .spacer{flex:1}
+  .progress-wrap{display:flex;align-items:center;gap:8px}
+  .progress-track{height:8px;background:var(--panel2);border-radius:5px;width:160px;overflow:hidden}
+  .progress-fill{height:100%;background:var(--green);width:0;transition:width .4s}
+  .progress-label{font-size:12px;color:var(--dim)}
+  .reset{background:none;border:1px solid var(--line);color:var(--dim);font-family:var(--sans);font-size:12px;padding:6px 12px;border-radius:7px;cursor:pointer}
+  .reset:hover{border-color:var(--red);color:var(--red)}
+  .menu-btn{display:none;background:none;border:1px solid var(--line);color:var(--ink);font-size:18px;padding:4px 11px;border-radius:7px;cursor:pointer}
+
+  /* stage area */
+  .stage{flex:1;overflow-y:auto;padding:30px 34px 90px}
+  .stage-inner{max-width:760px;margin:0 auto}
+  .eyebrow{color:var(--amber);font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;font-weight:700}
+  h2.lesson{font-size:26px;margin:0 0 6px;letter-spacing:-.3px;font-weight:800}
+  .lede{color:var(--ink2);font-size:16px;margin:6px 0 18px}
+  p.body{color:var(--ink);margin:12px 0}
+  p.body .k{color:var(--accent-d);font-weight:700}
+  p.body .w{color:var(--amber);font-weight:700}
+  code.inl{background:var(--panel2);border:1px solid var(--line);padding:1px 7px;border-radius:5px;color:var(--accent-d);font-family:var(--mono);font-size:.9em}
+
+  /* "what this word means" beginner boxes */
+  .define{background:var(--amber-bg);border:1px solid #EAD9AC;border-radius:10px;padding:14px 16px;margin:14px 0}
+  .define h4{margin:0 0 6px;font-size:13px;color:var(--amber);letter-spacing:.5px;text-transform:uppercase}
+  .define p{margin:7px 0;color:#5C4A1E;font-size:14px}
+  .define p b{color:#3F3413}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:16px 0}
+  .card h3{margin:0 0 12px;font-size:15px;color:var(--ink);font-weight:800}
+  .cmd-row{display:flex;gap:14px;padding:8px 0;border-bottom:1px solid var(--line)}
+  .cmd-row:last-child{border-bottom:none}
+  .cmd-row code{color:var(--accent-d);min-width:140px;flex-shrink:0;font-family:var(--mono);font-size:13px}
+  .cmd-row span{color:var(--ink2)}
+
+  /* challenge */
+  .challenge{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px;margin:20px 0;box-shadow:0 1px 3px rgba(20,30,50,.04)}
+  .qtag{color:var(--amber);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;font-weight:700}
+  .q{font-size:16px;margin-bottom:18px;line-height:1.55;font-weight:600}
+  .q b{color:var(--accent-d)}
+  .opts{display:grid;gap:10px}
+  .opt{text-align:left;background:var(--panel);border:1.5px solid var(--line);color:var(--ink);font-family:var(--sans);font-size:15px;padding:13px 16px;border-radius:9px;cursor:pointer;transition:.12s;display:flex;gap:10px;align-items:flex-start}
+  .opt:hover:not(:disabled){border-color:var(--accent);background:#F0F6FF}
+  .opt:disabled{cursor:default}
+  .opt .pre{color:var(--dim);font-weight:700;flex-shrink:0}
+  .opt.correct{border-color:var(--green);background:var(--green-bg)}
+  .opt.correct .pre{color:var(--green)}
+  .opt.wrong{border-color:var(--red);background:var(--red-bg)}
+  .opt.wrong .pre{color:var(--red)}
+  .opt .tag{margin-left:auto;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding-left:10px}
+  .opt.correct .tag{color:var(--green)}
+  .opt.wrong .tag{color:var(--red)}
+
+  .verdict{margin-top:16px;font-size:14px;min-height:10px}
+  .verdict.ok{color:var(--green)}
+  .verdict.no{color:var(--red)}
+  .verdict .explain{display:block;color:var(--ink2);margin-top:7px;line-height:1.6;font-weight:400}
+  .verdict b.lead{font-weight:800}
+  .ctrls{display:flex;gap:10px;margin-top:18px;align-items:center}
+  .ctrls .spacer{flex:1}
+
+  .btn{background:var(--accent);color:#fff;border:none;font-family:var(--sans);font-weight:700;font-size:14px;padding:11px 20px;border-radius:9px;cursor:pointer}
+  .btn:hover{background:var(--accent-d)}
+  .btn:disabled{opacity:.4;cursor:default;background:var(--accent)}
+  .btn.ghost{background:none;border:1.5px solid var(--line);color:var(--ink2)}
+  .btn.ghost:hover{border-color:var(--accent);color:var(--accent);background:#F0F6FF}
+  .btn.green{background:var(--green)}
+  .btn.green:hover{filter:brightness(.94)}
+
+  /* fill input */
+  .fillrow{display:flex;gap:10px;margin-bottom:6px;flex-wrap:wrap}
+  .fillrow input{background:var(--panel);border:1.5px solid var(--line);color:var(--ink);font-family:var(--mono);font-size:16px;padding:11px 14px;border-radius:9px;width:230px;letter-spacing:.5px}
+  .fillrow input:focus{outline:none;border-color:var(--accent)}
+
+  /* simulated terminal */
+  .term{background:var(--term-bg);border-radius:12px;overflow:hidden;margin:18px 0;border:1px solid #243349}
+  .term-head{background:#15243C;padding:9px 14px;display:flex;align-items:center;gap:7px}
+  .term-head i{width:11px;height:11px;border-radius:50%;display:block}
+  .term-head i:nth-child(1){background:#FF5F56}.term-head i:nth-child(2){background:#FFBD2E}.term-head i:nth-child(3){background:#27C93F}
+  .term-head .ttl{margin-left:10px;color:var(--rail-dim);font-size:12px;font-family:var(--mono)}
+  .term-body{padding:14px 16px;min-height:120px;max-height:280px;overflow-y:auto;font-family:var(--mono);font-size:13px;line-height:1.65;color:var(--term-ink)}
+  .term-line{white-space:pre-wrap;word-break:break-word}
+  .term-line .ps{color:#6FE0A0}
+  .term-line .ps .p{color:#6FB1FF}
+  .term-line.out{color:#AEB9CC}
+  .term-line.err{color:#FF8B7E}
+  .term-line.ok{color:#6FE0A0}
+  .term-input-row{display:flex;align-items:center;gap:7px;padding:0 16px 14px;font-family:var(--mono)}
+  .term-input-row .ps{color:#6FE0A0;white-space:nowrap;font-size:13px}
+  .term-input-row .ps .p{color:#6FB1FF}
+  .term-input{flex:1;background:none;border:none;color:var(--term-ink);font-family:var(--mono);font-size:13px;outline:none;caret-color:#6FE0A0}
+  .task-banner{display:flex;gap:12px;align-items:flex-start;background:#F0F6FF;border:1px solid #C9DDFB;border-left:4px solid var(--accent);border-radius:10px;padding:14px 16px;margin:16px 0}
+  .task-banner .num{color:var(--accent);font-weight:800;font-family:var(--mono)}
+  .task-banner .tx{flex:1}
+  .task-banner .tx b{color:var(--accent-d)}
+  .task-state{font-size:13px;color:var(--dim);margin:8px 0 0}
+  .task-state .done{color:var(--green);font-weight:700}
+
+  /* bit toggles */
+  .bits{display:flex;gap:9px;flex-wrap:wrap;margin:16px 0}
+  .bit{display:flex;flex-direction:column;align-items:center;gap:6px}
+  .bit .b{width:48px;height:48px;border:1.5px solid var(--line);border-radius:9px;background:var(--panel);color:var(--dim);font-family:var(--mono);font-size:21px;font-weight:700;cursor:pointer;transition:.1s}
+  .bit .b.on{background:#E8F0FE;border-color:var(--accent);color:var(--accent-d)}
+  .bit .pw{font-size:10px;color:var(--dim);font-family:var(--mono)}
+  .bit.sign .b.on{background:var(--red-bg);border-color:var(--red);color:var(--red)}
+  .readout{font-size:16px;margin:10px 0 4px}
+  .readout .v{color:var(--accent-d);font-size:20px;font-weight:800;font-family:var(--mono)}
+  .readout .v.neg{color:var(--red)}
+
+  /* memory tiles */
+  .mem-cell{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+  .mem-cell .addr{color:var(--accent-d);font-size:13px;width:70px;font-family:var(--mono)}
+  .mem-cell .slot{width:66px;height:44px;border:1.5px dashed var(--line);border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:16px;background:var(--panel);font-family:var(--mono);font-weight:700}
+  .mem-cell .slot.filled{border-style:solid;border-color:var(--green);color:var(--green);background:var(--green-bg)}
+  .tiles{display:flex;gap:11px;margin:8px 0 4px}
+  .tile{width:66px;height:44px;border:1.5px solid var(--amber);border-radius:9px;background:var(--amber-bg);color:var(--amber);display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;font-family:var(--mono);font-weight:700}
+  .tile.placed{opacity:.3;cursor:default}
+  .tile.sel{outline:3px solid rgba(31,111,235,.4)}
+  .hint{color:var(--dim);font-size:13px}
+
+  /* section summary */
+  .summary{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px;margin:22px 0}
+  .summary h3{margin:0 0 4px;font-size:17px;font-weight:800;color:var(--green)}
+  .summary .sub{color:var(--dim);font-size:13px;margin:0 0 16px}
+  .summary-item{padding:12px 0;border-bottom:1px solid var(--line)}
+  .summary-item:last-child{border-bottom:none}
+  .summary-item .sq{font-weight:700;color:var(--ink);font-size:14px;margin-bottom:4px}
+  .summary-item .sa{color:var(--green);font-size:14px;font-weight:700}
+  .summary-item .se{color:var(--ink2);font-size:13px;margin-top:3px}
+
+  .gate{background:linear-gradient(180deg,#F0F6FF,#FFFFFF);border:1px solid #C9DDFB;border-radius:14px;padding:28px 24px;margin:24px 0;text-align:center}
+  .gate .big{font-size:20px;color:var(--ink);margin:0 0 6px;font-weight:800}
+  .gate .earned{color:var(--accent-d);font-size:14px;margin-bottom:8px;font-weight:700}
+  .gate .sm{color:var(--ink2);font-size:14px;margin:0 0 20px}
+
+  .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:#fff;padding:12px 22px;border-radius:10px;font-size:14px;font-weight:700;opacity:0;transition:.3s;pointer-events:none;z-index:50;box-shadow:0 6px 20px rgba(20,30,50,.2)}
+  .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+  .toast.green{background:var(--green)}
+
+  .footnote{color:var(--dim);font-size:12px;margin-top:30px;border-top:1px solid var(--line);padding-top:14px;line-height:1.6}
+
+  @media (max-width:760px){
+    .frame{grid-template-columns:1fr}
+    .rail{position:fixed;z-index:40;width:260px;height:100vh;transform:translateX(-100%);transition:.25s}
+    .rail.open{transform:none}
+    .menu-btn{display:inline-flex!important}
+    .stage{padding:22px 16px 90px}
+    .progress-track{width:90px}
+    h2.lesson{font-size:22px}
+  }
+</style>
+</head>
+<body>
+<div class="frame">
+  <aside class="rail" id="rail">
+    <div class="brand">
+      <h1>term<span class="c">train</span></h1>
+      <div class="sub">Learn the command line &amp; number systems</div>
+    </div>
+    <nav class="path-list" id="pathList"></nav>
+  </aside>
+  <div class="main">
+    <div class="topbar">
+      <button class="menu-btn" onclick="document.getElementById('rail').classList.toggle('open')">&#8801;</button>
+      <div class="stat xp"><b id="xp">0</b><span class="lbl">XP</span></div>
+      <div class="stat streak"><b id="streak">0</b><span class="lbl">streak</span></div>
+      <div class="spacer"></div>
+      <div class="progress-wrap"><div class="progress-track"><div class="progress-fill" id="pfill"></div></div><span class="progress-label" id="plabel">0 / 8</span></div>
+      <button class="reset" onclick="resetAll()">restart</button>
+    </div>
+    <div class="stage"><div class="stage-inner" id="stage"></div></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const STAGES=[
+  {id:"cli",icon:"$",label:"command prompt",group:"shell basics"},
+  {id:"ssh",icon:"#",label:"ssh",group:"shell basics"},
+  {id:"netcat",icon:"nc",label:"netcat",group:"shell basics"},
+  {id:"terminal",icon:">_",label:"terminal drills",group:"shell basics"},
+  {id:"editors",icon:"~",label:"text editors",group:"shell basics"},
+  {id:"binary",icon:"01",label:"binary",group:"number systems"},
+  {id:"twos",icon:"\u00b1",label:"two's complement",group:"number systems"},
+  {id:"endian",icon:"\u21c4",label:"endianness",group:"number systems"},
+];
+let state,currentIdx;
+function freshState(){const done={};STAGES.forEach(s=>done[s.id]=false);return{xp:0,streak:0,done,unlockedTo:0};}
+
+/* ---------- progress saving (localStorage; silently no-ops if unavailable) ---------- */
+const SAVE_KEY="termtrain_progress_v1";
+const MCQ_SAVED={}; // {stageId:[bool,...]} mirror of solved arrays, survives reloads
+function storageOK(){try{const k="__tt_test__";localStorage.setItem(k,"1");localStorage.removeItem(k);return true;}catch(e){return false;}}
+const CAN_SAVE=storageOK();
+function saveProgress(){
+  if(!CAN_SAVE)return;
+  try{
+    const blob={
+      v:1,
+      xp:state.xp, streak:state.streak, done:state.done, unlockedTo:state.unlockedTo,
+      mcq:MCQ_SAVED,
+      term:{taskIdx:TERMSTATE.taskIdx, cwd:TERMSTATE.cwd, completed:TERMSTATE.completed},
+      num:{binary:NUMSTATE.binary, twos:NUMSTATE.twos, endian:NUMSTATE.endian}
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(blob));
+  }catch(e){/* ignore quota or serialization errors */}
+}
+function loadProgress(){
+  if(!CAN_SAVE)return false;
+  try{
+    const raw=localStorage.getItem(SAVE_KEY); if(!raw)return false;
+    const b=JSON.parse(raw); if(!b||b.v!==1)return false;
+    state.xp=b.xp||0; state.streak=b.streak||0;
+    if(b.done)STAGES.forEach(s=>{state.done[s.id]=!!b.done[s.id];});
+    state.unlockedTo=typeof b.unlockedTo==="number"?b.unlockedTo:0;
+    if(b.mcq)Object.keys(b.mcq).forEach(k=>{MCQ_SAVED[k]=b.mcq[k];});
+    if(b.term){TERMSTATE.taskIdx=b.term.taskIdx||0;TERMSTATE.cwd=b.term.cwd||"~";if(Array.isArray(b.term.completed)&&b.term.completed.length===TERM_TASKS.length)TERMSTATE.completed=b.term.completed.slice();}
+    if(b.num){NUMSTATE.binary=b.num.binary||0;NUMSTATE.twos=b.num.twos||0;NUMSTATE.endian=b.num.endian||0;}
+    return true;
+  }catch(e){return false;}
+}
+function clearSaved(){if(!CAN_SAVE)return;try{localStorage.removeItem(SAVE_KEY);}catch(e){}}
+
+function boot(){
+  state=freshState();currentIdx=0;
+  // clear all in-session stage progress
+  for(const k in MCQ_STATE)delete MCQ_STATE[k];
+  for(const k in MCQ_SAVED)delete MCQ_SAVED[k];
+  TERMSTATE.taskIdx=0;TERMSTATE.cwd="~";TERMSTATE.completed=new Array(TERM_TASKS.length).fill(false);
+  NUMSTATE.binary=0;NUMSTATE.twos=0;NUMSTATE.endian=0;
+  loadProgress();           // restore saved progress if present
+  renderPath();updateStats();renderStage();
+}
+function rnd(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+function toBin(n,bits){return(n>>>0).toString(2).padStart(bits,"0").slice(-bits);}
+function toast(msg,green){const t=document.getElementById("toast");t.textContent=msg;t.className="toast show"+(green?" green":"");clearTimeout(t._t);t._t=setTimeout(()=>t.className="toast",1700);}
+function award(pts){state.xp+=pts;state.streak++;let b=state.streak%5===0?" \u00b7 "+state.streak+" streak!":"";toast("+"+pts+" XP"+b,true);updateStats();}
+function miss(){state.streak=0;updateStats();}
+function updateStats(){document.getElementById("xp").textContent=state.xp;document.getElementById("streak").textContent=state.streak;const total=STAGES.length,d=STAGES.filter(s=>state.done[s.id]).length;document.getElementById("pfill").style.width=(d/total*100)+"%";document.getElementById("plabel").textContent=d+" / "+total;saveProgress();}
+function renderPath(){
+  const el=document.getElementById("pathList");el.innerHTML="";let lastGroup=null;
+  STAGES.forEach((s,i)=>{
+    if(s.group!==lastGroup){const g=document.createElement("div");g.className="group";g.textContent=s.group;el.appendChild(g);lastGroup=s.group;}
+    const unlocked=i<=state.unlockedTo;
+    const node=document.createElement("div");
+    node.className="stage-node"+(i===currentIdx?" active":"")+(state.done[s.id]?" done":"")+(unlocked?" clickable":" locked");
+    node.innerHTML='<span class="ic">'+(state.done[s.id]?"\u2713":(unlocked?s.icon:"\ud83d\udd12"))+'</span><span class="lbl">'+s.label+'</span><span class="mark">'+(state.done[s.id]?"done":"")+'</span>';
+    if(unlocked)node.onclick=()=>{currentIdx=i;renderPath();renderStage();document.getElementById('rail').classList.remove('open');};
+    el.appendChild(node);
+  });
+}
+function renderStage(){const s=document.getElementById("stage");const stage=STAGES[currentIdx];s.innerHTML=LESSONS[stage.id]();if(INIT[stage.id])INIT[stage.id]();s.parentElement.scrollTop=0;}
+const FOOT='<div class="footnote">Sources: the uploaded <i>General Skills</i> PDF and its linked articles \u2014 Hostinger (SSH), poftut + the SANS Netcat Cheat Sheet by Ed Skoudis (Netcat), maker.pro (Linux commands), howtogeek/nano-editor.org (nano), and Lifewire (the four free GUI text editors). Beginner explanations of technical terms go beyond the source material to avoid assuming prior knowledge.</div>';
+
+function completeStage(bonusNote, summaryHTML, silent){
+  const stage=STAGES[currentIdx];
+  if(!state.done[stage.id]){state.done[stage.id]=true;if(currentIdx+1>state.unlockedTo)state.unlockedTo=currentIdx+1;}
+  renderPath();updateStats();
+  const host=document.getElementById("stage");
+  if(summaryHTML){const wrap=document.createElement("div");wrap.innerHTML=summaryHTML;host.appendChild(wrap);}
+  const isLast=currentIdx===STAGES.length-1;
+  const noteText=silent?"You\u2019ve already completed this section \u2014 here\u2019s the review again.":(bonusNote||"");
+  const gate=document.createElement("div");gate.className="gate";
+  gate.innerHTML=isLast
+    ?'<p class="big">\ud83c\udf89 Path complete</p><p class="earned">Total XP: '+state.xp+'</p><p class="sm">You\u2019ve finished every section.</p><button class="btn ghost" onclick="boot()">start over</button>'
+    :'<p class="big">Section complete: '+stage.label+'</p><p class="earned">'+noteText+'</p><p class="sm">Next up: '+STAGES[currentIdx+1].label+'</p><button class="btn" id="continueBtn">continue \u2192</button>';
+  host.appendChild(gate);
+  gate.scrollIntoView({behavior:"smooth",block:"center"});
+  const cont=document.getElementById("continueBtn");
+  if(cont)cont.onclick=()=>{currentIdx++;renderPath();renderStage();};
+}
+
+/* ---------- MCQ engine: keep wrong + highlight correct + manual Next ---------- */
+const MCQ_STATE={};
+function mcqStage(id,intro,questions){
+  // initialize once; preserve progress if the user navigates away and back
+  if(!MCQ_STATE[id]){
+    const saved=Array.isArray(MCQ_SAVED[id])&&MCQ_SAVED[id].length===questions.length?MCQ_SAVED[id].slice():new Array(questions.length).fill(false);
+    MCQ_STATE[id]={questions,idx:0,solved:saved,answered:saved.slice()};
+  }
+  else{MCQ_STATE[id].questions=questions;} // keep solved/idx, refresh question refs
+  return intro+'<div id="mcq-'+id+'"></div>'+FOOT;
+}
+function mountMCQ(id){
+  const st=MCQ_STATE[id];
+  // if this section was already finished, show the review again instead of restarting
+  if(st.solved.every(Boolean)){ finishMCQ(id,true); return; }
+  // resume at the first unsolved question
+  if(st.solved[st.idx]){ for(let j=0;j<st.questions.length;j++){ if(!st.solved[j]){st.idx=j;break;} } }
+  renderMCQItem(id);
+}
+function renderMCQItem(id){
+  const st=MCQ_STATE[id];const host=document.getElementById("mcq-"+id);const i=st.idx;const q=st.questions[i];const letters=["A","B","C","D","E"];const solvedCount=st.solved.filter(Boolean).length;
+  host.innerHTML='<div class="challenge"><div class="qtag">Question '+(i+1)+' of '+st.questions.length+' \u00b7 '+solvedCount+' answered</div><div class="q">'+q.q+'</div><div class="opts" id="opts-'+id+'">'+q.opts.map((o,k)=>'<button class="opt" data-k="'+k+'"><span class="pre">'+letters[k]+'</span><span>'+o+'</span></button>').join("")+'</div><div class="verdict" id="v-'+id+'"></div><div class="ctrls"><div class="spacer"></div><button class="btn" id="next-'+id+'" disabled>next \u2192</button></div></div>';
+  const v=document.getElementById("v-"+id);
+  const nextBtn=document.getElementById("next-"+id);
+  host.querySelectorAll(".opt").forEach(btn=>{
+    btn.onclick=()=>{
+      const k=+btn.dataset.k;
+      // lock all, mark correct + chosen-wrong; do NOT auto-advance
+      host.querySelectorAll(".opt").forEach((b,idx)=>{
+        b.disabled=true;
+        if(idx===q.a){b.classList.add("correct");b.querySelector(".tag")||b.insertAdjacentHTML("beforeend",'<span class="tag">correct</span>');}
+        if(idx===k&&k!==q.a){b.classList.add("wrong");b.insertAdjacentHTML("beforeend",'<span class="tag">your pick</span>');}
+      });
+      if(k===q.a){
+        v.className="verdict ok";v.innerHTML='<b class="lead">Correct.</b><span class="explain">'+q.ex+'</span>';
+        if(!st.solved[i]){st.solved[i]=true;MCQ_SAVED[id]=st.solved.slice();award(10);}
+      }else{
+        v.className="verdict no";v.innerHTML='<b class="lead">Not quite \u2014 the right answer is highlighted above.</b><span class="explain">'+q.ex+'</span>';
+        miss();
+      }
+      st.answered[i]=true;
+      nextBtn.disabled=false;
+      nextBtn.focus();
+    };
+  });
+  nextBtn.onclick=()=>advanceMCQ(id);
+}
+function advanceMCQ(id){
+  const st=MCQ_STATE[id];
+  // all questions must be answered correctly to finish; revisit unsolved ones
+  if(st.solved.every(Boolean)){ finishMCQ(id); return; }
+  const n=st.questions.length;
+  // prefer next unsolved after current
+  let found=-1;
+  for(let step=1;step<=n;step++){let j=(st.idx+step)%n;if(!st.solved[j]){found=j;break;}}
+  st.idx=found<0?st.idx:found;
+  renderMCQItem(id);
+}
+function finishMCQ(id,silent){
+  const st=MCQ_STATE[id];
+  const items=st.questions.map((q,n)=>{
+    const correctText=q.opts[q.a];
+    return '<div class="summary-item"><div class="sq">'+(n+1)+'. '+stripTags(q.q)+'</div><div class="sa">\u2713 '+correctText+'</div><div class="se">'+q.ex+'</div></div>';
+  }).join("");
+  const summary='<div class="summary"><h3>Section review</h3><p class="sub">The correct answer to each question, for reference.</p>'+items+'</div>';
+  completeStage("All "+st.questions.length+" questions answered correctly. +"+(st.questions.length*10)+" XP.", summary, silent);
+}
+function stripTags(s){return s.replace(/<[^>]+>/g,"");}
+
+const LESSONS={},INIT={};
+
+/* ===================== STAGE 1 — COMMAND PROMPT ===================== */
+LESSONS.cli=()=>mcqStage("cli",
+'<div class="eyebrow">Stage 1 \u00b7 shell basics</div><h2 class="lesson">What is a command prompt?</h2>'
++'<p class="lede">The text-based way of telling a computer what to do.</p>'
++'<p class="body">A <span class="k">command prompt</span> \u2014 also called the <span class="k">terminal</span> or <span class="k">bash</span> \u2014 is a window where you type instructions as text, one line at a time. The computer reads each line, carries out the action, and shows you the result. It\u2019s the same idea as clicking icons with a mouse, except you type the command instead of clicking.</p>'
++'<div class="define"><h4>Plain-language definitions</h4>'
++'<p><b>Terminal / console:</b> the window you type commands into. "Terminal," "console," "command prompt," and "shell" are used almost interchangeably day to day.</p>'
++'<p><b>Bash:</b> the most common program that reads your typed commands and runs them on Linux and Mac. Its name stands for "Bourne Again Shell" \u2014 you don\u2019t need to remember that.</p>'
++'<p><b>Command:</b> a single typed instruction, like asking to list files or open a folder.</p></div>'
++'<div class="card"><h3>How the loop works</h3>'
++'<div class="cmd-row"><code>1. you type</code><span>a command and press Enter</span></div>'
++'<div class="cmd-row"><code>2. it reads</code><span>the shell interprets what you typed</span></div>'
++'<div class="cmd-row"><code>3. it runs</code><span>the computer performs the action and prints any output</span></div></div>'
++'<p class="body">Answer all questions correctly to unlock the next stage. A wrong answer stays visible with the correct one highlighted, so you can compare before moving on.</p>',
+[
+  {q:"Which of these is NOT another everyday name for the command prompt?",opts:["Terminal","Bash","Kernel"],a:2,ex:"Terminal and Bash both refer to the command-line environment. The kernel is the deep core of the operating system that manages hardware \u2014 it is not the window you type commands into."},
+  {q:"After you type a command and press Enter, what does the shell do?",opts:["Reads (interprets) the command and runs the matching action on the computer","Saves your text as a document for later","Sends your text to technical support"],a:0,ex:"The shell interprets the line you typed and carries out the corresponding operation, then shows any output. Nothing is filed away or sent anywhere unless your command specifically does that."},
+  {q:"How is a command prompt usually described, visually?",opts:["A busy screen full of windows and buttons","A simple, mostly text screen where you type","A voice assistant you speak to"],a:1,ex:"It\u2019s deliberately minimal: a plain screen showing a prompt where you type text. The simplicity is the point \u2014 it\u2019s fast and precise once you know the commands."},
+]);
+INIT.cli=()=>mountMCQ("cli");
+
+/* ===================== STAGE 2 — SSH ===================== */
+LESSONS.ssh=()=>mcqStage("ssh",
+'<div class="eyebrow">Stage 2 \u00b7 shell basics</div><h2 class="lesson">SSH \u2014 connecting to another computer safely</h2>'
++'<p class="lede">A secure way to log in to a distant computer and run commands on it as if you were sitting in front of it.</p>'
++'<p class="body"><span class="k">SSH</span> stands for <span class="k">Secure Shell</span>. It lets your computer (the <span class="k">client</span>) open a protected connection to another computer somewhere else (the <span class="k">host</span> or <span class="k">server</span>), so you can type commands that run on that far-away machine. Everything sent back and forth is <span class="k">encrypted</span>, meaning scrambled so that anyone intercepting it can\u2019t read it.</p>'
++'<div class="define"><h4>Plain-language definitions</h4>'
++'<p><b>Remote computer / server / host:</b> a computer in another location \u2014 often in a data centre \u2014 that you connect to over the internet rather than touching directly.</p>'
++'<p><b>Client:</b> your own computer, the one starting the connection.</p>'
++'<p><b>Encryption:</b> scrambling data so only the intended sender and receiver can understand it. If someone taps the line, they see gibberish.</p>'
++'<p><b>IP address:</b> a computer\u2019s numeric address on a network, like <code class="inl">203.0.113.5</code>. A domain name (like <code class="inl">example.com</code>) is a human-friendly label that points to an IP address.</p>'
++'<p><b>Port:</b> a numbered "doorway" on a computer for a specific kind of traffic. SSH uses door number <b>22</b> by default.</p></div>'
++'<div class="card"><h3>How you connect</h3>'
++'<div class="cmd-row"><code>Mac / Linux</code><span>type <code class="inl">ssh user@host</code> in the terminal</span></div>'
++'<div class="cmd-row"><code>Windows</code><span>use an SSH program such as PuTTY (older Windows had no built-in ssh command)</span></div></div>'
++'<p class="body">In <code class="inl">ssh user@host</code>, the <span class="k">user</span> is the account name on the remote machine (for example <code class="inl">root</code>, the all-powerful administrator account), and the <span class="k">host</span> is that machine\u2019s IP address or domain name. After you press Enter it asks for the password \u2014 and as a safety feature, nothing shows on screen while you type it (not even dots). SSH replaced an older tool called <span class="k">Telnet</span> that sent everything, including passwords, in plain readable text.</p>'
++'<p class="body">Because weak passwords can be guessed by automated programs ("bots"), a safer alternative is an <span class="k">SSH key pair</span>: two matching files, one kept private and one placed on the server, that prove who you are without typing a password.</p>',
+[
+  {q:"What does SSH stand for, and what is it for?",opts:["Secure Shell \u2014 safely logging in to and controlling a remote computer","Simple Server Host \u2014 building websites","System Service Handler \u2014 managing printers"],a:0,ex:"SSH = Secure Shell. It gives you an encrypted connection to a remote machine so you can run commands on it safely over the internet."},
+  {q:"In the command <b>ssh alice@10.0.0.5</b>, what is <b>10.0.0.5</b>?",opts:["The password","The host \u2014 the address of the computer you\u2019re connecting to","A secret key"],a:1,ex:"It\u2019s the host: the IP address of the target machine. \u2018alice\u2019 before the @ is the account (user) you\u2019re logging in as."},
+  {q:"SSH was created as a safer replacement for which older tool?",opts:["Telnet, which sent passwords in plain readable text","Email","The mouse"],a:0,ex:"Telnet worked but sent everything unencrypted, so anyone watching the network could read your password. SSH encrypts the whole session."},
+  {q:"Which numbered \u2018doorway\u2019 (port) does SSH use by default?",opts:["Port 80","Port 443","Port 22"],a:2,ex:"SSH listens on port 22 by default. Ports 80 and 443 are for normal and secure web traffic respectively."},
+  {q:"Why is an SSH key pair often recommended instead of a password?",opts:["Keys are shorter to type","Automated bots can guess weak passwords, but a key pair doesn\u2019t rely on a typed password","Passwords don\u2019t work on Linux"],a:1,ex:"Passwords \u2014 especially weak or reused ones \u2014 can be brute-forced by bots trying many guesses. A key pair proves your identity with matched files instead, removing that weak point."},
+]);
+INIT.ssh=()=>mountMCQ("ssh");
+
+/* ===================== STAGE 3 — NETCAT ===================== */
+LESSONS.netcat=()=>mcqStage("netcat",
+'<div class="eyebrow">Stage 3 \u00b7 shell basics</div><h2 class="lesson">Netcat \u2014 the networking multi-tool</h2>'
++'<p class="lede">A small command, <code class="inl">nc</code>, that can send and receive data across a network in lots of different ways.</p>'
++'<p class="body"><span class="k">Netcat</span> reads and writes data over network connections. People call it the "Swiss Army Knife of networking" because the one little tool can do many jobs: transferring files, acting as a simple chat link, and checking which "doors" (ports) on a computer are open. It can play either role in a connection \u2014 the <span class="k">client</span> that reaches out, or the <span class="k">server</span> (listener) that waits to be contacted.</p>'
++'<div class="define"><h4>Plain-language definitions</h4>'
++'<p><b>Client vs. server (listener):</b> the <b>client</b> starts a connection ("calls"); the <b>server/listener</b> waits for incoming connections ("answers the phone"). Netcat can be either.</p>'
++'<p><b>Port scanning:</b> checking which numbered doorways on a machine are open, the way you might rattle each door in a hallway to see which are unlocked. Useful for diagnosing your own systems.</p>'
++'<p><b>TCP and UDP:</b> two methods computers use to send data. TCP double-checks that everything arrives in order; UDP is faster but doesn\u2019t verify delivery. Netcat uses TCP unless you ask for UDP.</p>'
++'<p><b>STDIN / STDOUT:</b> "standard input" is whatever you type in; "standard output" is whatever the program prints back. Netcat connects these to the network.</p></div>'
++'<div class="card"><h3>Reading the command: <code class="inl">nc [options] [target] [port]</code></h3>'
++'<p class="body" style="margin-top:0">Every netcat command has up to three parts. The square brackets in the manual just mean "fill this in" \u2014 you don\u2019t type the brackets themselves.</p>'
++'<div class="cmd-row"><code>[options]</code><span>the <b>flags</b> \u2014 short switches starting with a dash (like <code class="inl">-v</code> or <code class="inl">-l</code>) that change how netcat behaves. Optional, and you can combine several.</span></div>'
++'<div class="cmd-row"><code>[target]</code><span>the address of the other computer \u2014 a domain name (<code class="inl">example.com</code>) or an IP (<code class="inl">10.0.0.5</code>). Needed when you\u2019re the one connecting out.</span></div>'
++'<div class="cmd-row"><code>[port]</code><span>which numbered doorway to use on that computer, e.g. <code class="inl">80</code> for web traffic or <code class="inl">22</code> for SSH.</span></div></div>'
++'<div class="define"><h4>So what does a real command look like?</h4>'
++'<p><b><code class="inl">nc -v scanme.org 80</code></b> &mdash; the <code class="inl">-v</code> is an option (verbose), <code class="inl">scanme.org</code> is the target, <code class="inl">80</code> is the port. Reads as: "connect to scanme.org on port 80, and tell me what\u2019s happening."</p>'
++'<p><b><code class="inl">nc -v -z scanme.org 20-25</code></b> &mdash; two options (<code class="inl">-v</code> verbose, <code class="inl">-z</code> just-check-don\u2019t-send), then the target, then a <i>range</i> of ports 20 through 25. Reads as: "quietly check which of ports 20\u201325 are open on scanme.org."</p>'
++'<p><b><code class="inl">nc -l -p 4444</code></b> &mdash; here there\u2019s no target at all, because <code class="inl">-l</code> (listen) means we\u2019re <i>waiting</i> for someone else to connect to us. <code class="inl">-p 4444</code> says "wait on port 4444." Reads as: "sit and listen on port 4444 for an incoming connection."</p></div>'
++'<div class="card"><h3>The flags (from the SANS Netcat Cheat Sheet by Ed Skoudis)</h3>'
++'<div class="cmd-row"><code>-l</code><span>listen mode \u2014 act as the server that waits for a connection</span></div>'
++'<div class="cmd-row"><code>-p</code><span>set the local port number</span></div>'
++'<div class="cmd-row"><code>-u</code><span>use UDP instead of the default TCP</span></div>'
++'<div class="cmd-row"><code>-n</code><span>skip looking up names \u2014 use raw numeric addresses (faster)</span></div>'
++'<div class="cmd-row"><code>-z</code><span>zero-data mode \u2014 just check if a port answers, send nothing (used for scanning)</span></div>'
++'<div class="cmd-row"><code>-w N</code><span>wait at most N seconds before giving up on a connection</span></div>'
++'<div class="cmd-row"><code>-v / -vv</code><span>verbose / very verbose \u2014 print more detail about what\u2019s happening</span></div>'
++'<div class="cmd-row"><code>-r</code><span>randomize the order of ports when scanning a range</span></div>'
++'<div class="cmd-row"><code>-L</code><span>(Windows only) "listen harder" \u2014 keep listening even after a client disconnects</span></div>'
++'<div class="cmd-row"><code>-e</code><span>run a program when a connection arrives (see the safety note below)</span></div></div>'
++'<div class="define"><h4>A safety note on the <code class="inl">-e</code> flag</h4>'
++'<p>The cheat sheet shows <code class="inl">-e</code> being used to attach a command shell to a connection. In the wrong hands that creates a "backdoor" \u2014 remote control of a machine \u2014 so it\u2019s a hacking technique covered in security training for <b>defenders</b> learning to recognise it. This course explains what <code class="inl">-e</code> does so you can spot it, but the practice drills only use safe, non-destructive commands.</p></div>',
+[
+  {q:"Why is netcat nicknamed the \u2018Swiss Army Knife\u2019?",opts:["It is manufactured in Switzerland","One small tool does many network jobs and can act as client or server","It can only scan ports"],a:1,ex:"Like a multi-tool, the single nc command handles file transfer, simple chat, port scanning and more, and can be either the caller (client) or the answerer (listener)."},
+  {q:"In <b>nc [options] [target] [port]</b>, what is the <b>target</b>?",opts:["The IP address or hostname of the machine you\u2019re contacting","A flag that changes behaviour","The help screen"],a:0,ex:"The target is the other computer\u2019s address \u2014 either a numeric IP or a domain name. It\u2019s required when netcat is the client (it has to know where to connect)."},
+  {q:"Which flag makes netcat <b>listen</b> \u2014 i.e. act as the server waiting for a connection?",opts:["-l","-v","-w"],a:0,ex:"-l switches netcat from its default client (calling) mode into listen (answering) mode. You usually pair it with -p to choose the port."},
+  {q:"What does the <b>-z</b> flag do?",opts:["Compresses the data","Zero-data mode \u2014 checks if a port responds without sending content, used for scanning","Encrypts the connection"],a:1,ex:"-z just knocks on the port to see if anything answers, sending no actual data. Combined with -v it\u2019s a quick way to scan which ports are open."},
+  {q:"By default netcat uses TCP. Which flag switches it to UDP?",opts:["-u","-n","-r"],a:0,ex:"-u selects UDP, the faster method that doesn\u2019t verify delivery. Without it, netcat uses TCP, which checks that data arrives in order."},
+  {q:"The cheat sheet\u2019s <b>-e</b> flag attaches a program to a connection. Why is it treated carefully?",opts:["It only works on Tuesdays","It can create a remote-control \u2018backdoor\u2019 into a machine, so it\u2019s a technique defenders learn to recognise","It deletes netcat"],a:1,ex:"-e runs a program (such as a command shell) for whoever connects. That can hand remote control of a computer to an attacker, so security training covers it for defensive recognition. We explain it but don\u2019t drill you on building one."},
+]);
+INIT.netcat=()=>mountMCQ("netcat");
+
+/* ===================== STAGE 4 — TERMINAL DRILLS (simulated terminal) ===================== */
+LESSONS.terminal=()=>
+'<div class="eyebrow">Stage 4 \u00b7 shell basics</div><h2 class="lesson">Terminal drills \u2014 type real commands</h2>'
++'<p class="lede">A practice shell. Read each task, type the command, and press Enter. This is hands-on, not multiple choice.</p>'
++'<div class="define"><h4>How this drill works</h4>'
++'<p>The black box below behaves like a simplified terminal. It shows a <b>prompt</b> ending in <code class="inl">$</code> \u2014 that\u2019s where you type. Tasks come in <b>groups by function</b> (navigation first, then viewing files, creating &amp; modifying, system &amp; network, and finally netcat), with a checkpoint message between groups. Matching is forgiving (extra spaces are fine), and if you get one wrong, a <b>hint</b> appears showing exactly what to type. Type <code class="inl">clear</code> any time to wipe the screen.</p></div>'
++'<div class="card"><h3>The commands you\u2019ll practise, grouped by what they do</h3>'
++'<p class="body" style="margin-top:0;color:var(--amber);font-weight:700">Navigation \u2014 moving around folders</p>'
++'<div class="cmd-row"><code>pwd</code><span>print working directory \u2014 show which folder you\u2019re in right now</span></div>'
++'<div class="cmd-row"><code>ls</code><span>list \u2014 show files here (<code class="inl">ls -a</code> includes hidden ones; <code class="inl">ls -l</code> shows details)</span></div>'
++'<div class="cmd-row"><code>cd NAME</code><span>change directory \u2014 move into a folder (<code class="inl">cd ..</code> moves up; <code class="inl">cd</code> alone goes home)</span></div>'
++'<p class="body" style="color:var(--amber);font-weight:700">Viewing files \u2014 looking at what\u2019s inside</p>'
++'<div class="cmd-row"><code>cat FILE</code><span>print a whole file\u2019s contents on screen</span></div>'
++'<div class="cmd-row"><code>head FILE</code><span>show just the first few lines of a file</span></div>'
++'<div class="cmd-row"><code>tail FILE</code><span>show just the last few lines of a file</span></div>'
++'<div class="cmd-row"><code>wc FILE</code><span>word count \u2014 count lines, words and characters (<code class="inl">wc -l</code> = lines only)</span></div>'
++'<p class="body" style="color:var(--amber);font-weight:700">Creating &amp; modifying \u2014 making and changing things</p>'
++'<div class="cmd-row"><code>mkdir NAME</code><span>make directory \u2014 create a new folder</span></div>'
++'<div class="cmd-row"><code>touch FILE</code><span>create a new empty file</span></div>'
++'<div class="cmd-row"><code>echo TEXT</code><span>print text back; with <code class="inl">&gt;</code> it writes that text into a file</span></div>'
++'<div class="cmd-row"><code>cp A B</code><span>copy file A to B</span></div>'
++'<div class="cmd-row"><code>mv A B</code><span>move \u2014 or, with two names, rename a file from A to B</span></div>'
++'<p class="body" style="color:var(--amber);font-weight:700">System &amp; network \u2014 about the machine and connections</p>'
++'<div class="cmd-row"><code>man CMD</code><span>manual \u2014 open the help page for any command</span></div>'
++'<div class="cmd-row"><code>ping HOST</code><span>test whether you can reach another computer over the network</span></div>'
++'<div class="cmd-row"><code>nc ...</code><span>netcat \u2014 the networking tool from the previous stage (safe uses only here)</span></div></div>'
++'<div class="define"><h4>One habit to learn now: quoting text and filenames</h4>'
++'<p>When you type a command, the shell breaks your line into pieces at every space. That\u2019s usually helpful \u2014 but it means a piece of text or a filename that <b>contains a space</b> would get split in two by mistake.</p>'
++'<p><b>The rule:</b> if your text or filename has a space in it, wrap it in <b>double quotes</b>. If it\u2019s a single word with no space, you don\u2019t need quotes (though adding them is harmless).</p>'
++'<p>Examples: <code class="inl">touch report.txt</code> needs no quotes (one word), but <code class="inl">touch "my report.txt"</code> must be quoted, or you\u2019d accidentally create two files called <code class="inl">my</code> and <code class="inl">report.txt</code>. Likewise <code class="inl">echo "big   gap"</code> needs quotes to keep the extra spaces \u2014 without them the shell squashes them down to one. The last group of tasks below practises exactly this. (There\u2019s a little more to quoting beyond this, but this rule covers everything you\u2019ll do at this stage.)</p></div>'
++'<div class="card"><h3>Netcat quick reference (for the netcat tasks below)</h3>'
++'<p class="body" style="margin-top:0">Form: <code class="inl">nc [options] [target] [port]</code> \u2014 options are the dash-flags, target is the other computer\u2019s address, port is the doorway number. (No target when you\u2019re only listening.)</p>'
++'<div class="cmd-row"><code>-v</code><span>verbose \u2014 print what\u2019s happening</span></div>'
++'<div class="cmd-row"><code>-z</code><span>zero-data \u2014 just check if a port answers (scanning)</span></div>'
++'<div class="cmd-row"><code>-l</code><span>listen \u2014 wait for an incoming connection (be the server)</span></div>'
++'<div class="cmd-row"><code>-p</code><span>set the port number (used with -l)</span></div>'
++'<div class="cmd-row"><code>examples</code><span><code class="inl">nc -v -z host 80</code> (check a port) \u00b7 <code class="inl">nc -l -p 4444</code> (listen) \u00b7 <code class="inl">nc host 80</code> (connect)</span></div></div>'
++'<div class="task-banner"><span class="num" id="taskNum">01</span><div class="tx" id="taskText"></div></div>'
++'<div class="task-state" id="taskState"></div>'
++'<div class="term"><div class="term-head"><i></i><i></i><i></i><span class="ttl">practice shell</span></div>'
++'<div class="term-body" id="termBody"></div>'
++'<div class="term-input-row"><span class="ps"><span class="p">you</span>:<span class="p" id="termCwd">~</span>$</span>'
++'<input class="term-input" id="termInput" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="type a command, then press Enter"></div></div>'
++FOOT;
+
+const TERM_TASKS=[
+  // --- Navigation ---
+  {group:"Navigation",text:"Find out which folder you\u2019re currently in.",hint:"It\u2019s three letters \u2014 \u2018print working directory\u2019: type <b>pwd</b>",valid:c=>/^pwd$/.test(c),run:()=>({out:"/home/you"})},
+  {group:"Navigation",text:"List the files in this folder.",hint:"Two letters: type <b>ls</b> (or <b>ls -a</b> to include hidden files).",valid:c=>/^ls(\s+-[al]+)?$/.test(c),run:()=>({out:"Documents   Downloads   notes.txt   report.txt"})},
+  {group:"Navigation",text:"Create a folder called <b>projects</b>, then move into it.",hint:"two steps \u2014 first <b>mkdir projects</b>, complete it, then on the next task <b>cd projects</b>",valid:c=>/^mkdir\s+projects\/?$/.test(c),run:()=>({ok:"folder 'projects' created"})},
+  {group:"Navigation",text:"Now move into the <b>projects</b> folder.",hint:"\u2018change directory\u2019: type <b>cd projects</b>",valid:c=>/^cd\s+projects\/?$/.test(c),run:()=>({cwd:"~/projects"})},
+  {group:"Navigation",text:"Go back up one level to where you started.",hint:"the two dots mean \u2018the folder above\u2019: type <b>cd ..</b>",valid:c=>/^cd\s+\.\.$/.test(c),run:()=>({cwd:"~"})},
+  // --- Viewing files ---
+  {group:"Viewing files",text:"Show the entire contents of <b>notes.txt</b>.",hint:"cat prints the whole file: type <b>cat notes.txt</b>",valid:c=>/^cat\s+notes\.txt$/.test(c),run:()=>({out:"line 1: welcome\nline 2: practice daily\nline 3: keep going\nline 4: almost there\nline 5: done"})},
+  {group:"Viewing files",text:"Show only the <b>first</b> few lines of <b>notes.txt</b>.",hint:"\u2018head\u2019 = the top of the file: type <b>head notes.txt</b>",valid:c=>/^head\s+notes\.txt$/.test(c),run:()=>({out:"line 1: welcome\nline 2: practice daily\nline 3: keep going"})},
+  {group:"Viewing files",text:"Show only the <b>last</b> few lines of <b>notes.txt</b>.",hint:"\u2018tail\u2019 = the bottom of the file: type <b>tail notes.txt</b>",valid:c=>/^tail\s+notes\.txt$/.test(c),run:()=>({out:"line 3: keep going\nline 4: almost there\nline 5: done"})},
+  {group:"Viewing files",text:"Count how many <b>lines</b> are in <b>notes.txt</b>.",hint:"word count, lines only: type <b>wc -l notes.txt</b>",valid:c=>/^wc\s+-l\s+notes\.txt$/.test(c),run:()=>({out:"5 notes.txt"})},
+  // --- Creating & modifying ---
+  {group:"Creating & modifying",text:"Create a new empty file named <b>plan.txt</b>.",hint:"type <b>touch plan.txt</b>",valid:c=>/^touch\s+plan\.txt$/.test(c),run:()=>({ok:"file 'plan.txt' created"})},
+  {group:"Creating & modifying",text:"Write the words <b>hello world</b> into a file called <b>greeting.txt</b>.",hint:"echo the text, then redirect it with &gt; into the file: type <b>echo hello world &gt; greeting.txt</b>",valid:c=>/^echo\s+hello world\s*>\s*greeting\.txt$/.test(c),run:()=>({ok:"wrote 'hello world' to greeting.txt"})},
+  {group:"Creating & modifying",text:"Make a copy of <b>plan.txt</b> called <b>backup.txt</b>.",hint:"copy = cp, with the source then the new name: type <b>cp plan.txt backup.txt</b>",valid:c=>/^cp\s+plan\.txt\s+backup\.txt$/.test(c),run:()=>({ok:"copied plan.txt \u2192 backup.txt"})},
+  {group:"Creating & modifying",text:"Rename <b>plan.txt</b> to <b>roadmap.txt</b>. (Move also renames.)",hint:"give mv two names \u2014 old then new: type <b>mv plan.txt roadmap.txt</b>",valid:c=>/^mv\s+plan\.txt\s+roadmap\.txt$/.test(c),run:()=>({ok:"renamed: plan.txt \u2192 roadmap.txt"})},
+  // --- System & network ---
+  {group:"System & network",text:"Open the <b>manual</b> (help page) for the <b>ls</b> command.",hint:"manual = man, then the command name: type <b>man ls</b>",valid:c=>/^man\s+ls$/.test(c),run:()=>({out:"LS(1)  ls \u2014 list directory contents.  Usage: ls [options] [path]   (press q to quit a real man page)"})},
+  {group:"System & network",text:"Check whether you can reach <b>google.com</b> over the network.",hint:"type <b>ping google.com</b>",valid:c=>/^ping\s+google\.com$/.test(c),run:()=>({out:"reply from google.com: time=14 ms \u2014 reachable"})},
+  // --- Netcat basics (safe) ---
+  {group:"Netcat basics",text:"Use netcat to <b>check if port 80 is open</b> on <b>scanme.org</b>, verbosely and without sending data.",hint:"verbose + zero-data + target + port: type <b>nc -v -z scanme.org 80</b>",valid:c=>/^nc\s+(-v\s+-z|-z\s+-v|-vz|-zv)\s+scanme\.org\s+80$/.test(c),run:()=>({out:"scanme.org [port 80] open"})},
+  {group:"Netcat basics",text:"Start a netcat <b>listener</b> waiting on port <b>4444</b>.",hint:"listen + set port, no target needed: type <b>nc -l -p 4444</b>",valid:c=>/^nc\s+-l\s+-p\s+4444$/.test(c),run:()=>({out:"listening on port 4444 ... (waiting for a connection)"})},
+  {group:"Netcat basics",text:"Connect as a netcat <b>client</b> to <b>example.com</b> on port <b>80</b>.",hint:"just target + port, no flags needed: type <b>nc example.com 80</b>",valid:c=>/^nc\s+example\.com\s+80$/.test(c),run:()=>({out:"connected to example.com:80 (type and press Enter to send; here we just confirm the connection)"})},
+  // --- Quoting & spaces ---
+  // Rule taught: quote (double quotes) only when the text/filename contains a space; no quotes needed otherwise.
+  {group:"Quoting & spaces",text:"Print the single word <b>hello</b> on screen. (No space, so no quotes are needed \u2014 though quoting it would also work.)",hint:"one word, no space: just type <b>echo hello</b>",valid:c=>/^echo\s+(hello|"hello")$/.test(c),run:()=>({out:"hello"})},
+  {group:"Quoting & spaces",text:"Print the phrase <b>hello world</b> on screen, with one normal space between the words.",hint:"one space only, so both work: <b>echo hello world</b> or <b>echo \"hello world\"</b> are both accepted",valid:c=>/^echo\s+(hello world|"hello world")$/.test(c),run:()=>({out:"hello world"})},
+  {group:"Quoting & spaces",text:"Print this exact text with <b>all three spaces preserved</b>: <code style=\"font-family:var(--mono)\">big&nbsp;&nbsp;&nbsp;gap</code>. (To keep the extra spaces, you MUST use quotes.)",hint:"without quotes the shell squashes the spaces to one \u2014 so quotes are required here: type <b>echo \"big   gap\"</b>",valid:c=>/^echo\s+"big {3}gap"$/.test(c),run:()=>({out:"big   gap"})},
+  {group:"Quoting & spaces",text:"Create a file whose name is a single word: <b>report.txt</b>. (No space \u2192 no quotes needed.)",hint:"single-word name, no quotes required: type <b>touch report.txt</b>",valid:c=>/^touch\s+(report\.txt|"report\.txt")$/.test(c),run:()=>({ok:"file 'report.txt' created"})},
+  {group:"Quoting & spaces",text:"Create a file whose name <b>contains a space</b>: <b>my report.txt</b>. (Because of the space, you MUST quote it \u2014 otherwise the shell would try to make two files.)",hint:"the space means quotes are required: type <b>touch \"my report.txt\"</b>",valid:c=>/^touch\s+"my report\.txt"$/.test(c),run:()=>({ok:"file 'my report.txt' created (one file, because you quoted it)"})},
+];
+
+const TERMSTATE={taskIdx:0,cwd:"~",completed:new Array(TERM_TASKS.length).fill(false)};
+INIT.terminal=()=>{
+  const body=document.getElementById("termBody");const input=document.getElementById("termInput");const cwdEl=document.getElementById("termCwd");
+  cwdEl.textContent=TERMSTATE.cwd;
+  function showTask(){const t=TERM_TASKS[TERMSTATE.taskIdx];document.getElementById("taskNum").textContent=String(TERMSTATE.taskIdx+1).padStart(2,"0");document.getElementById("taskText").innerHTML='<b>Task '+(TERMSTATE.taskIdx+1)+' of '+TERM_TASKS.length+' \u00b7 '+t.group+':</b> '+t.text;document.getElementById("taskState").innerHTML='<span class="done">'+TERMSTATE.completed.filter(Boolean).length+'</span> of '+TERM_TASKS.length+' tasks done';}
+  function emit(html,cls){const d=document.createElement("div");d.className="term-line"+(cls?(" "+cls):"");d.innerHTML=html;body.appendChild(d);body.scrollTop=body.scrollHeight;}
+  function emitCmd(cmd){emit('<span class="ps"><span class="p">you</span>:<span class="p">'+TERMSTATE.cwd+'</span>$</span> '+escapeHtml(cmd));}
+  function escapeHtml(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+  function announceGroupIfNew(){
+    const g=TERM_TASKS[TERMSTATE.taskIdx].group;
+    const prev=TERMSTATE.taskIdx>0?TERM_TASKS[TERMSTATE.taskIdx-1].group:null;
+    if(g!==prev){
+      if(prev!==null){emit("\u2014\u2014 checkpoint: \u201c"+prev+"\u201d group done. Next group: \u201c"+g+"\u201d \u2014\u2014","ok");}
+      emit("\u25b8 "+g.toUpperCase(),"out");
+    }
+  }
+  function normalizeOutsideQuotes(s){
+    s=s.trim();
+    let out="",inQ=false;
+    for(let i=0;i<s.length;i++){
+      const ch=s[i];
+      if(ch==='"'){inQ=!inQ;out+=ch;continue;}
+      if(!inQ&&ch===" "){ if(out.endsWith(" "))continue; out+=" "; continue; }
+      out+=ch;
+    }
+    return out;
+  }
+  function buildFinalSummary(){
+    const refs={
+      "Navigation":[["pwd","show the folder you\u2019re in"],["ls","list files here (-a hidden, -l detailed)"],["cd NAME / cd ..","move into a folder / up one level"]],
+      "Viewing files":[["cat FILE","print the whole file"],["head FILE","first lines only"],["tail FILE","last lines only"],["wc -l FILE","count the lines"]],
+      "Creating & modifying":[["mkdir NAME","make a folder"],["touch FILE","make an empty file"],["echo TEXT &gt; FILE","write text into a file"],["cp A B","copy a file"],["mv A B","move or rename a file"]],
+      "System & network":[["man CMD","open a command\u2019s manual"],["ping HOST","test if a computer is reachable"]],
+      "Netcat basics":[["nc -v -z HOST PORT","check if a port is open"],["nc -l -p PORT","listen on a port"],["nc HOST PORT","connect as a client"]],
+      "Quoting & spaces":[["echo hello","one word \u2192 no quotes needed"],["echo \"big   gap\"","spaces to preserve \u2192 quotes required"],["touch report.txt","single-word name \u2192 no quotes"],["touch \"my report.txt\"","name has a space \u2192 quotes required"]]
+    };
+    let summary='<div class="summary"><h3>Commands you practised</h3><p class="sub">Grouped reference for everything in this drill.</p>';
+    Object.keys(refs).forEach(g=>{
+      summary+='<div class="summary-item"><div class="sq" style="color:var(--amber)">'+g+'</div>'+refs[g].map(r=>'<div class="sa" style="margin-top:4px"><code style="font-family:var(--mono)">'+r[0]+'</code> &mdash; '+r[1]+'</div>').join("")+'</div>';
+    });
+    return summary+'</div>';
+  }
+  function handle(raw){
+    const cmd=normalizeOutsideQuotes(raw);if(cmd==="")return;emitCmd(cmd);
+    if(cmd==="clear"){body.innerHTML="";return;}
+    const t=TERM_TASKS[TERMSTATE.taskIdx];
+    if(t.valid(cmd)){
+      const eff=t.run()||{};
+      if(eff.out)emit(eff.out,"out");
+      if(eff.ok)emit(eff.ok,"ok");
+      if(eff.cwd){TERMSTATE.cwd=eff.cwd;cwdEl.textContent=TERMSTATE.cwd;}
+      if(!TERMSTATE.completed[TERMSTATE.taskIdx]){TERMSTATE.completed[TERMSTATE.taskIdx]=true;award(15);}
+      emit("\u2713 task complete","ok");
+      TERMSTATE.taskIdx++;
+      if(TERMSTATE.taskIdx>=TERM_TASKS.length){
+        input.disabled=true;
+        completeStage(TERM_TASKS.length+" commands typed correctly. +"+(TERM_TASKS.length*15)+" XP.",buildFinalSummary());
+        return;
+      }
+      announceGroupIfNew();
+      showTask();
+    } else {
+      emit("hint: "+t.hint,"err");
+      miss();
+    }
+  }
+  input.addEventListener("keydown",e=>{if(e.key==="Enter"){handle(input.value);input.value="";}});
+  // already finished? show the review again instead of restarting
+  if(TERMSTATE.taskIdx>=TERM_TASKS.length){
+    input.disabled=true;
+    emit("You\u2019ve already completed this drill. Review below.","out");
+    completeStage(TERM_TASKS.length+" commands typed correctly.",buildFinalSummary(),true);
+    return;
+  }
+  if(TERMSTATE.taskIdx>0){
+    emit("Welcome back \u2014 resuming where you left off ("+TERMSTATE.completed.filter(Boolean).length+" of "+TERM_TASKS.length+" tasks already done).","out");
+  } else {
+    emit("Practice shell ready. Do the tasks in order. Type 'clear' to wipe the screen.","out");
+  }
+  emit("\u25b8 "+TERM_TASKS[TERMSTATE.taskIdx].group.toUpperCase(),"out");
+  showTask();input.focus();
+};
+
+/* ===================== STAGE 5 — TEXT EDITORS (nano + 4 GUI editors) ===================== */
+LESSONS.editors=()=>mcqStage("editors",
+'<div class="eyebrow">Stage 5 \u00b7 shell basics</div><h2 class="lesson">Text editors \u2014 in the terminal and on the desktop</h2>'
++'<p class="lede">Two families: editors you run inside the terminal, and full desktop apps with menus and a mouse.</p>'
++'<p class="body">A <span class="k">text editor</span> is a program for writing and changing plain text \u2014 notes, configuration files, or program code. There are two broad kinds.</p>'
++'<div class="card"><h3>Terminal editors (no mouse, run inside the shell)</h3>'
++'<p class="body" style="margin-top:0">The common ones are <span class="k">nano</span>, <span class="k">vim</span>, and <span class="k">emacs</span>. <b>nano</b> is the friendliest for beginners because it lists its shortcuts along the bottom of the screen, so you don\u2019t have to memorise them. Open or create a file with <code class="inl">nano filename.txt</code> \u2014 if the file exists it opens; if not, nano creates it when you save.</p>'
++'<div class="cmd-row"><code>Ctrl+O</code><span>"write out" = save. It asks for the filename, then you press Enter</span></div>'
++'<div class="cmd-row"><code>Ctrl+X</code><span>exit; if you have unsaved changes it asks whether to save first</span></div>'
++'<div class="cmd-row"><code>Ctrl+K</code><span>cut (remove) the current line</span></div>'
++'<div class="cmd-row"><code>Ctrl+U</code><span>paste the line you cut</span></div>'
++'<div class="cmd-row"><code>Ctrl+W</code><span>"where is" = search for text</span></div>'
++'<div class="cmd-row"><code>Ctrl+G</code><span>open the built-in help / full shortcut list</span></div></div>'
++'<div class="define"><h4>Reading nano\u2019s shortcuts</h4>'
++'<p>nano writes shortcuts with a caret symbol: <code class="inl">^O</code> means "hold Ctrl and press O." It never uses the Shift key, and the letters shown in capitals still work as lowercase \u2014 so <code class="inl">^O</code> is just Ctrl+O.</p></div>'
++'<div class="card"><h3>Desktop (GUI) editors (windows, menus, mouse \u2014 from the Lifewire guide)</h3>'
++'<p class="body" style="margin-top:0">Your computer already ships with a basic one \u2014 <b>Notepad</b> on Windows, <b>TextEdit</b> on Mac \u2014 but these four free apps do much more:</p>'
++'<div class="cmd-row"><code>Notepad++</code><span>Windows only. Tabs, syntax colouring, plugins; great upgrade from Notepad</span></div>'
++'<div class="cmd-row"><code>VS Code</code><span>Windows, Mac, Linux. Built for code; can open whole project folders; has a debugger</span></div>'
++'<div class="cmd-row"><code>Brackets</code><span>Windows, Mac. Aimed at web design; live-preview a web page as you edit it</span></div>'
++'<div class="cmd-row"><code>Komodo Edit</code><span>Windows, Mac, Linux. Tabs, "virtual projects" grouping files from different places</span></div></div>'
++'<div class="define"><h4>Plain-language definitions</h4>'
++'<p><b>GUI:</b> "graphical user interface" \u2014 the windows-icons-and-mouse style of program, as opposed to typing commands.</p>'
++'<p><b>Syntax highlighting:</b> automatically colouring code so different parts (keywords, text, numbers) are easy to tell apart.</p>'
++'<p><b>Plugin / extension:</b> an optional add-on that gives a program extra features.</p></div>',
+[
+  {q:"You run <b>nano notes.txt</b> but no file called notes.txt exists yet. What happens?",opts:["nano shows an error and quits","nano opens a blank editor and creates the file when you save","Every file in the folder is deleted"],a:1,ex:"If the file doesn\u2019t exist, nano simply starts a new blank document and writes the file to disk the first time you save with Ctrl+O."},
+  {q:"In nano, which shortcut <b>saves</b> the file?",opts:["Ctrl+S","Ctrl+O","Ctrl+W"],a:1,ex:"Ctrl+O is \u2018Write Out\u2019 (save) in nano. It then asks you to confirm the filename. (Ctrl+S works in many desktop apps, but nano historically uses Ctrl+O.)"},
+  {q:"nano shows <b>^X</b> at the bottom of the screen. What does that mean?",opts:["Hold Ctrl and press X (to exit)","Press Shift+X","Press the X key twice"],a:0,ex:"The caret (^) stands for the Ctrl key, so ^X means Ctrl+X, which exits nano. It will ask whether to save if you have unsaved changes."},
+  {q:"Why is nano considered more beginner-friendly than vim?",opts:["nano needs no terminal","nano lists its shortcuts on screen and has no separate \u2018edit mode\u2019 to switch into","nano can\u2019t save files, so there\u2019s less to learn"],a:1,ex:"nano always shows common shortcuts along the bottom and lets you type immediately. vim makes you switch between modes and shows nothing on screen, which trips up newcomers."},
+  {q:"Among the four desktop editors, which runs <b>only</b> on Windows?",opts:["VS Code","Notepad++","Komodo Edit"],a:1,ex:"Notepad++ is Windows-only. VS Code and Komodo Edit run on Windows, Mac and Linux; Brackets runs on Windows and Mac."},
+  {q:"Which desktop editor is specifically highlighted for <b>web design</b>, with a live preview of the page as you edit?",opts:["Brackets","Notepad++","TextEdit"],a:0,ex:"Brackets is aimed at web designers; its Live Preview shows an HTML/CSS page updating in your browser as you type. VS Code is more general-purpose coding; Notepad++ is a Windows all-rounder."},
+]);
+INIT.editors=()=>mountMCQ("editors");
+
+/* ===================== STAGE 6 — BINARY ===================== */
+LESSONS.binary=()=>
+'<div class="eyebrow">Stage 6 \u00b7 number systems</div><h2 class="lesson">Binary \u2014 counting with only 0 and 1</h2>'
++'<p class="lede">The number system computers actually use underneath everything.</p>'
++'<p class="body">People count in <span class="k">base-10</span> (decimal): ten digits, 0 through 9. Computers count in <span class="k">base-2</span> (<span class="k">binary</span>): just two digits, 0 and 1. Each 0-or-1 is called a <span class="k">bit</span>. The idea matches the hardware: a switch is either off (0) or on (1).</p>'
++'<div class="define"><h4>How a binary number has a value</h4>'
++'<p>In decimal, each position is worth ten times the one to its right (ones, tens, hundreds). In binary, each position is worth <b>twice</b> the one to its right (1, 2, 4, 8, 16, \u2026). To find a binary number\u2019s value, add up the position-values wherever there\u2019s a 1.</p>'
++'<p>Example: <code class="inl">1011</code> = 8 + 0 + 2 + 1 = <b>11</b>.</p></div>'
++'<div class="card"><h3>Try it \u2014 flip the bits and watch the value</h3>'
++'<div class="bits" id="binBits"></div>'
++'<div class="readout">value in decimal: <span class="v" id="binVal">0</span></div>'
++'<div class="hint">This is 8 bits (an "8-bit" number). Each box shows what it\u2019s worth when it\u2019s a 1.</div></div>'
++'<p class="body"><b>Going the other way (decimal \u2192 binary):</b> repeatedly divide the number by 2, writing down each remainder (0 or 1), then read the remainders bottom-to-top.</p>'
++'<p class="body">Solve <b>3</b> conversion challenges to complete this stage. A wrong answer gives a hint and lets you try again.</p>'
++'<div id="chal-binary"></div>'+FOOT;
+INIT.binary=()=>{buildBits("binBits","binVal",8,false);numberStage("binary",3,newBinaryChallenge);};
+
+/* ===================== STAGE 7 — TWO'S COMPLEMENT ===================== */
+LESSONS.twos=()=>
+'<div class="eyebrow">Stage 7 \u00b7 number systems</div><h2 class="lesson">Two\u2019s complement \u2014 storing negative numbers</h2>'
++'<p class="lede">The standard trick computers use to represent negative whole numbers in binary.</p>'
++'<p class="body">Plain binary only writes 0 and up. To handle <b>negative</b> numbers, computers use <span class="k">two\u2019s complement</span>. The leftmost bit becomes the <span class="k">sign bit</span>: if it\u2019s 0 the number is positive, if it\u2019s 1 the number is negative.</p>'
++'<div class="define"><h4>How to negate a number (flip its sign)</h4>'
++'<p><b>Step 1:</b> write the positive number in binary. <b>Step 2:</b> flip every bit (0\u21941). <b>Step 3:</b> add 1.</p>'
++'<p>Example with 4 bits: +4 is <code class="inl">0100</code>. Flip \u2192 <code class="inl">1011</code>. Add 1 \u2192 <code class="inl">1100</code>. So <code class="inl">1100</code> means \u22124.</p>'
++'<p>To read a two\u2019s-complement number: if the sign bit is 0, convert normally. If it\u2019s 1, the number is negative \u2014 negate it (flip + add 1) to find its size, then put the minus sign back.</p></div>'
++'<div class="card"><h3>Try it \u2014 signed 8-bit (note the red leftmost bit)</h3>'
++'<div class="bits" id="twBits"></div>'
++'<div class="readout">signed value: <span class="v" id="twVal">0</span></div>'
++'<div class="hint">The leftmost bit is worth <b>minus</b> 128 (\u22122\u2077). Turning it on makes the total negative.</div></div>'
++'<p class="body">Solve <b>3</b> challenges to complete this stage.</p>'
++'<div id="chal-twos"></div>'+FOOT;
+INIT.twos=()=>{buildBits("twBits","twVal",8,true);numberStage("twos",3,newTwosChallenge);};
+
+/* ===================== STAGE 8 — ENDIANNESS ===================== */
+LESSONS.endian=()=>
+'<div class="eyebrow">Stage 8 \u00b7 number systems</div><h2 class="lesson">Endianness \u2014 byte order in memory</h2>'
++'<p class="lede">When a number is too big for one slot of memory, which half goes first?</p>'
++'<p class="body">Memory is a long row of numbered slots, each holding one <span class="k">byte</span> (8 bits). A number bigger than one byte must be split across several slots \u2014 and there are two conventions for the order. This ordering is called <span class="k">endianness</span>.</p>'
++'<div class="define"><h4>Plain-language definitions</h4>'
++'<p><b>Byte:</b> a group of 8 bits, the basic chunk memory is measured in. Two hex characters (like <code class="inl">FE</code>) make one byte.</p>'
++'<p><b>Memory address:</b> the numbered position of a slot, written in hex like <code class="inl">0x4000</code>. ("0x" just signals a hexadecimal number.)</p>'
++'<p><b>Most / least significant byte:</b> in <code class="inl">FEED</code>, <code class="inl">FE</code> is the "big" part (most significant, like the leftmost digits of a normal number) and <code class="inl">ED</code> is the "small" part (least significant).</p></div>'
++'<div class="card"><h3>The two orders, using 0xFEED stored at address 0x4000</h3>'
++'<div class="cmd-row"><code>Big-endian</code><span>big end first: most significant byte (FE) at the lowest address. 0x4000=FE, 0x4001=ED</span></div>'
++'<div class="cmd-row"><code>Little-endian</code><span>little end first: least significant byte (ED) at the lowest address. 0x4000=ED, 0x4001=FE</span></div></div>'
++'<p class="body">Big-endian is common in networking; little-endian is common inside most processors. Place <b>3</b> words correctly to finish the path.</p>'
++'<div class="challenge"><div class="qtag" id="endTag">drill</div><div class="q" id="endQ"></div>'
++'<div class="hint">Click a byte tile to pick it up, then click an address slot to drop it in.</div>'
++'<div class="tiles" id="endTiles"></div>'
++'<div class="mem-cell"><span class="addr">0x4000</span><div class="slot" id="slot0"></div></div>'
++'<div class="mem-cell"><span class="addr">0x4001</span><div class="slot" id="slot1"></div></div>'
++'<div class="verdict" id="endVerdict"></div>'
++'<div class="ctrls"><button class="btn" id="endCheck">check</button><span class="hint" id="endCount" style="align-self:center"></span></div></div>'+FOOT;
+INIT.endian=()=>endianStage(3);
+
+/* ---------- bit toggle widget ---------- */
+function buildBits(containerId,valId,bits,signed){
+  const c=document.getElementById(containerId);c.innerHTML="";const arr=new Array(bits).fill(0);
+  for(let i=0;i<bits;i++){const pos=bits-1-i;const wrap=document.createElement("div");wrap.className="bit"+(signed&&i===0?" sign":"");const btn=document.createElement("button");btn.className="b";btn.textContent="0";btn.onclick=()=>{arr[i]^=1;btn.textContent=arr[i];btn.classList.toggle("on",arr[i]===1);recompute();};const pw=document.createElement("div");pw.className="pw";pw.textContent=(signed&&i===0?"\u2212128":""+Math.pow(2,pos));wrap.appendChild(btn);wrap.appendChild(pw);c.appendChild(wrap);}
+  function recompute(){let v=0;for(let i=0;i<bits;i++){const pos=bits-1-i;if(arr[i]){(signed&&i===0)?v-=Math.pow(2,pos):v+=Math.pow(2,pos);}}const el=document.getElementById(valId);el.textContent=v;el.classList.toggle("neg",v<0);}
+  recompute();
+}
+
+/* ---------- number stage controller (persists solved count in-session) ---------- */
+const NUMSTATE={binary:0,twos:0,endian:0};
+function numberSummary(topic){
+  return '<div class="summary"><h3>Section review</h3><p class="sub">Key idea to remember.</p>'+
+    (topic==="binary"
+      ?'<div class="summary-item"><div class="sq">Binary \u2192 decimal</div><div class="sa">Add the position-values (1,2,4,8,16\u2026) wherever there is a 1.</div></div><div class="summary-item"><div class="sq">Decimal \u2192 binary</div><div class="sa">Divide by 2 repeatedly, record remainders, read them bottom-to-top.</div></div>'
+      :'<div class="summary-item"><div class="sq">Sign bit</div><div class="sa">Leftmost bit: 0 = positive, 1 = negative.</div></div><div class="summary-item"><div class="sq">Negating a number</div><div class="sa">Flip every bit, then add 1.</div></div>')
+    +'</div>';
+}
+function numberStage(topic,need,generator){
+  window["__ns_"+topic]={need,topic,
+    get solved(){return NUMSTATE[topic];},
+    set solved(v){NUMSTATE[topic]=v;},
+    done:()=>{ completeStage(need+" challenges solved. +"+(need*15)+" XP.",numberSummary(topic)); }
+  };
+  // already finished this stage? show the review instead of restarting
+  if(NUMSTATE[topic]>=need){
+    completeStage(need+" challenges solved.",numberSummary(topic),true);
+    return;
+  }
+  generator();
+}
+function bumpNS(topic){const ns=window["__ns_"+topic];ns.solved=ns.solved+1;if(ns.solved>=ns.need)ns.done();}
+
+/* ---------- fill challenge (hint on wrong, manual new question) ---------- */
+function fillUI(topic,question,validator,explain,placeholder,onCorrect,regenerate){
+  const host=document.getElementById("chal-"+topic);
+  const ns=window["__ns_"+topic];
+  host.innerHTML='<div class="challenge"><div class="qtag">Challenge \u00b7 '+(ns.solved+1)+' of '+ns.need+'</div><div class="q">'+question+'</div><div class="fillrow"><input type="text" id="in-'+topic+'" placeholder="'+placeholder+'" autocomplete="off" spellcheck="false"><button class="btn" id="sub-'+topic+'">check</button></div><div class="verdict" id="fv-'+topic+'"></div><div class="ctrls"><div class="spacer"></div><button class="btn ghost" id="next-'+topic+'" disabled>new question \u2192</button></div></div>';
+  const input=document.getElementById("in-"+topic);const sub=document.getElementById("sub-"+topic);const nextBtn=document.getElementById("next-"+topic);const v=document.getElementById("fv-"+topic);
+  let answered=false;
+  function check(){
+    if(answered)return;const raw=input.value.trim();if(raw===""){v.className="verdict no";v.textContent="Type an answer first.";return;}
+    if(validator(raw)){v.className="verdict ok";v.innerHTML='<b class="lead">Correct.</b><span class="explain">'+explain+'</span>';input.disabled=true;sub.disabled=true;answered=true;nextBtn.disabled=false;nextBtn.focus();award(15);onCorrect();}
+    else{miss();v.className="verdict no";v.innerHTML='<b class="lead">Not quite \u2014 try again.</b><span class="explain">Hint: '+explain.replace(/\.$/,"")+'.</span>';}
+  }
+  sub.onclick=check;input.onkeydown=e=>{if(e.key==="Enter")check();};nextBtn.onclick=()=>regenerate();input.focus();
+}
+
+function newBinaryChallenge(){
+  const topic="binary";const oc=()=>bumpNS(topic);const regen=()=>newBinaryChallenge();
+  if(Math.random()<0.5){const n=rnd(1,255),bin=toBin(n,8);fillUI(topic,'Convert this binary number to decimal:<br><b style="font-family:var(--mono);font-size:20px">'+bin+'</b>',v=>parseInt(v,10)===n,"Add the position-values where there is a 1: "+bin+" = "+n+".","enter a decimal number",oc,regen);}
+  else{const n=rnd(1,255);fillUI(topic,'Convert this decimal number to 8-bit binary:<br><b style="font-family:var(--mono);font-size:20px">'+n+'</b>',v=>v.replace(/\s/g,"")===toBin(n,8),"Divide by 2 repeatedly and read remainders bottom-to-top: "+n+" = "+toBin(n,8)+".","enter 8 bits, e.g. 01001010",oc,regen);}
+}
+function newTwosChallenge(){
+  const topic="twos";const oc=()=>bumpNS(topic);const regen=()=>newTwosChallenge();const mode=rnd(0,2);
+  if(mode===0){const n=rnd(1,120),neg=toBin((256-n)&255,8);fillUI(topic,'Write the 8-bit two\u2019s complement representation of <b>\u2212'+n+'</b>.',v=>v.replace(/\s/g,"")===neg,"Take +"+n+" = "+toBin(n,8)+", flip every bit, add 1 \u2192 "+neg+".","enter 8 bits",oc,regen);}
+  else if(mode===1){const n=rnd(1,120),pat=toBin((256-n)&255,8);fillUI(topic,'This is an 8-bit two\u2019s complement number. What is its decimal value?<br><b style="font-family:var(--mono);font-size:20px">'+pat+'</b>',v=>parseInt(v,10)===-n,"Sign bit is 1, so it\u2019s negative. Flip + add 1 gives "+toBin(n,8)+" = "+n+", so the value is \u2212"+n+".","decimal, e.g. -12",oc,regen);}
+  else{const n=rnd(0,127),pat=toBin(n,8);fillUI(topic,'This is an 8-bit two\u2019s complement number. What is its decimal value?<br><b style="font-family:var(--mono);font-size:20px">'+pat+'</b>',v=>parseInt(v,10)===n,"Sign bit is 0, so it\u2019s positive \u2014 convert normally: "+pat+" = "+n+".","enter a decimal number",oc,regen);}
+}
+
+/* ---------- endianness drill ---------- */
+function endianSummary(){
+  return '<div class="summary"><h3>Section review</h3><p class="sub">The two byte orders.</p><div class="summary-item"><div class="sq">Big-endian</div><div class="sa">Most significant byte at the lowest address. Common in networking.</div></div><div class="summary-item"><div class="sq">Little-endian</div><div class="sa">Least significant byte at the lowest address. Common in processors.</div></div></div>';
+}
+function endianStage(need){
+  // already finished? show review instead of restarting
+  if(NUMSTATE.endian>=need){ completeStage(need+" words placed correctly.",endianSummary(),true); return; }
+  function nextWord(){
+    const hi=rnd(0,255).toString(16).toUpperCase().padStart(2,"0");const lo=rnd(0,255).toString(16).toUpperCase().padStart(2,"0");const word=hi+lo;const big=Math.random()<0.5;const target=big?[hi,lo]:[lo,hi];
+    let selected=null;const placed={0:null,1:null};
+    document.getElementById("endTag").textContent=(big?"big":"little")+"-endian";
+    document.getElementById("endQ").innerHTML='Store the 16-bit word <b>0x'+word+'</b> in <b>'+(big?"big":"little")+'-endian</b> order, starting at address 0x4000.';
+    document.getElementById("endCount").textContent=NUMSTATE.endian+" / "+need+" placed";
+    const tiles=document.getElementById("endTiles");tiles.innerHTML="";
+    [hi,lo].forEach(b=>{const t=document.createElement("div");t.className="tile";t.textContent=b;t.dataset.byte=b;t.onclick=()=>{if(t.classList.contains("placed"))return;[...tiles.children].forEach(x=>x.classList.remove("sel"));selected=t;t.classList.add("sel");};tiles.appendChild(t);});
+    [0,1].forEach(i=>{const slot=document.getElementById("slot"+i);slot.className="slot";slot.textContent="";slot.onclick=()=>{if(!selected)return;if(placed[i])placed[i].classList.remove("placed");slot.textContent=selected.dataset.byte;slot.classList.add("filled");selected.classList.add("placed");selected.classList.remove("sel");placed[i]=selected;selected=null;};});
+    const v=document.getElementById("endVerdict");v.textContent="";v.className="verdict";
+    const check=document.getElementById("endCheck");check.disabled=false;
+    check.onclick=()=>{const a0=document.getElementById("slot0").textContent,a1=document.getElementById("slot1").textContent;if(!a0||!a1){v.className="verdict no";v.innerHTML='<b class="lead">Place both bytes first.</b>';return;}if(a0===target[0]&&a1===target[1]){v.className="verdict ok";v.innerHTML='<b class="lead">Correct.</b><span class="explain">'+(big?"Big-endian puts the most significant byte ("+hi+") at the lowest address.":"Little-endian puts the least significant byte ("+lo+") at the lowest address.")+'</span>';award(15);NUMSTATE.endian++;check.disabled=true;if(NUMSTATE.endian>=need){completeStage(need+" words placed correctly. +"+(need*15)+" XP.",endianSummary());}else{setTimeout(nextWord,850);}}else{v.className="verdict no";v.innerHTML='<b class="lead">Not quite \u2014 try again.</b><span class="explain">Hint: for '+(big?"big":"little")+'-endian, 0x4000 should hold '+target[0]+' and 0x4001 should hold '+target[1]+'.</span>';miss();}};
+  }
+  nextWord();
+}
+
+function resetAll(){clearSaved();boot();toast("path restarted",true);}
+boot();
+</script>
+</body>
+</html>
