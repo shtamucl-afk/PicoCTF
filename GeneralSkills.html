@@ -42,6 +42,8 @@
   .brand h1{font-size:17px;margin:0;letter-spacing:.3px;font-weight:800}
   .brand h1 .c{color:#6FB1FF}
   .brand .sub{color:var(--rail-dim);font-size:12px;margin-top:3px}
+  .brand .back{display:inline-flex;align-items:center;gap:6px;margin-top:12px;color:var(--rail-dim);text-decoration:none;font-size:12px;font-weight:600;padding:5px 10px;border:1px solid rgba(255,255,255,.15);border-radius:7px;transition:.15s}
+  .brand .back:hover{color:#6FB1FF;border-color:#6FB1FF}
   .path-list{padding:8px}
   .path-list .group{color:var(--rail-dim);font-size:11px;letter-spacing:1px;text-transform:uppercase;padding:12px 10px 5px;user-select:none}
   .stage-node{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:8px;position:relative;color:var(--rail-ink);cursor:default;font-size:14px}
@@ -219,8 +221,9 @@
 <div class="frame">
   <aside class="rail" id="rail">
     <div class="brand">
-      <h1>term<span class="c">train</span></h1>
+      <h1>General <span class="c">Skills</span></h1>
       <div class="sub">Learn the command line &amp; number systems</div>
+      <a class="back" href="index.html">&larr; All topics</a>
     </div>
     <nav class="path-list" id="pathList"></nav>
   </aside>
