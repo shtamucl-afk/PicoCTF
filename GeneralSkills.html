@@ -246,10 +246,14 @@ const STAGES=[
   {id:"ssh",icon:"#",label:"ssh",group:"shell basics"},
   {id:"netcat",icon:"nc",label:"netcat",group:"shell basics"},
   {id:"terminal",icon:">_",label:"terminal drills",group:"shell basics"},
+  {id:"sshcmd",icon:"ssh",label:"ssh commands",group:"shell basics"},
+  {id:"sshdrill",icon:">_",label:"ssh drill",group:"shell basics"},
   {id:"editors",icon:"~",label:"text editors",group:"shell basics"},
   {id:"binary",icon:"01",label:"binary",group:"number systems"},
   {id:"twos",icon:"\u00b1",label:"two's complement",group:"number systems"},
+  {id:"hex",icon:"0x",label:"hexadecimal",group:"number systems"},
   {id:"endian",icon:"\u21c4",label:"endianness",group:"number systems"},
+  {id:"hints",icon:"\u2691",label:"challenge hints",group:"hints",type:"reference"},
 ];
 let state,currentIdx;
 function freshState(){const done={};STAGES.forEach(s=>done[s.id]=false);return{xp:0,streak:0,done,unlockedTo:0};}
@@ -267,7 +271,8 @@ function saveProgress(){
       xp:state.xp, streak:state.streak, done:state.done, unlockedTo:state.unlockedTo,
       mcq:MCQ_SAVED,
       term:{taskIdx:TERMSTATE.taskIdx, cwd:TERMSTATE.cwd, completed:TERMSTATE.completed},
-      num:{binary:NUMSTATE.binary, twos:NUMSTATE.twos, endian:NUMSTATE.endian}
+      ssh:{taskIdx:SSHSTATE.taskIdx, completed:SSHSTATE.completed},
+      num:{binary:NUMSTATE.binary, twos:NUMSTATE.twos, endian:NUMSTATE.endian, hex:NUMSTATE.hex}
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(blob));
   }catch(e){/* ignore quota or serialization errors */}
@@ -281,8 +286,9 @@ function loadProgress(){
     if(b.done)STAGES.forEach(s=>{state.done[s.id]=!!b.done[s.id];});
     state.unlockedTo=typeof b.unlockedTo==="number"?b.unlockedTo:0;
     if(b.mcq)Object.keys(b.mcq).forEach(k=>{MCQ_SAVED[k]=b.mcq[k];});
-    if(b.term){TERMSTATE.taskIdx=b.term.taskIdx||0;TERMSTATE.cwd=b.term.cwd||"~";if(Array.isArray(b.term.completed)&&b.term.completed.length===TERM_TASKS.length)TERMSTATE.completed=b.term.completed.slice();}
-    if(b.num){NUMSTATE.binary=b.num.binary||0;NUMSTATE.twos=b.num.twos||0;NUMSTATE.endian=b.num.endian||0;}
+    if(b.term){TERMSTATE.cwd=b.term.cwd||"~";if(Array.isArray(b.term.completed)&&b.term.completed.length===TERM_TASKS.length){TERMSTATE.completed=b.term.completed.slice();TERMSTATE.taskIdx=Math.min(b.term.taskIdx||0,TERM_TASKS.length);}else{TERMSTATE.taskIdx=0;}}
+    if(b.ssh){SSHSTATE.taskIdx=Math.min(b.ssh.taskIdx||0,SSH_TASKS.length);if(Array.isArray(b.ssh.completed)&&b.ssh.completed.length===SSH_TASKS.length)SSHSTATE.completed=b.ssh.completed.slice();else SSHSTATE.taskIdx=0;}
+    if(b.num){NUMSTATE.binary=b.num.binary||0;NUMSTATE.twos=b.num.twos||0;NUMSTATE.endian=b.num.endian||0;NUMSTATE.hex=b.num.hex||0;}
     return true;
   }catch(e){return false;}
 }
@@ -294,7 +300,8 @@ function boot(){
   for(const k in MCQ_STATE)delete MCQ_STATE[k];
   for(const k in MCQ_SAVED)delete MCQ_SAVED[k];
   TERMSTATE.taskIdx=0;TERMSTATE.cwd="~";TERMSTATE.completed=new Array(TERM_TASKS.length).fill(false);
-  NUMSTATE.binary=0;NUMSTATE.twos=0;NUMSTATE.endian=0;
+  SSHSTATE.taskIdx=0;SSHSTATE.completed=new Array(SSH_TASKS.length).fill(false);
+  NUMSTATE.binary=0;NUMSTATE.twos=0;NUMSTATE.endian=0;NUMSTATE.hex=0;
   loadProgress();           // restore saved progress if present
   renderPath();updateStats();renderStage();
 }
@@ -303,15 +310,17 @@ function toBin(n,bits){return(n>>>0).toString(2).padStart(bits,"0").slice(-bits)
 function toast(msg,green){const t=document.getElementById("toast");t.textContent=msg;t.className="toast show"+(green?" green":"");clearTimeout(t._t);t._t=setTimeout(()=>t.className="toast",1700);}
 function award(pts){state.xp+=pts;state.streak++;let b=state.streak%5===0?" \u00b7 "+state.streak+" streak!":"";toast("+"+pts+" XP"+b,true);updateStats();}
 function miss(){state.streak=0;updateStats();}
-function updateStats(){document.getElementById("xp").textContent=state.xp;document.getElementById("streak").textContent=state.streak;const total=STAGES.length,d=STAGES.filter(s=>state.done[s.id]).length;document.getElementById("pfill").style.width=(d/total*100)+"%";document.getElementById("plabel").textContent=d+" / "+total;saveProgress();}
+function updateStats(){document.getElementById("xp").textContent=state.xp;document.getElementById("streak").textContent=state.streak;const graded=STAGES.filter(s=>s.type!=="reference");const total=graded.length,d=graded.filter(s=>state.done[s.id]).length;document.getElementById("pfill").style.width=(d/total*100)+"%";document.getElementById("plabel").textContent=d+" / "+total;saveProgress();}
 function renderPath(){
   const el=document.getElementById("pathList");el.innerHTML="";let lastGroup=null;
   STAGES.forEach((s,i)=>{
     if(s.group!==lastGroup){const g=document.createElement("div");g.className="group";g.textContent=s.group;el.appendChild(g);lastGroup=s.group;}
-    const unlocked=i<=state.unlockedTo;
+    const isRef=s.type==="reference";
+    const unlocked=isRef||i<=state.unlockedTo;
+    const done=!isRef&&state.done[s.id];
     const node=document.createElement("div");
-    node.className="stage-node"+(i===currentIdx?" active":"")+(state.done[s.id]?" done":"")+(unlocked?" clickable":" locked");
-    node.innerHTML='<span class="ic">'+(state.done[s.id]?"\u2713":(unlocked?s.icon:"\ud83d\udd12"))+'</span><span class="lbl">'+s.label+'</span><span class="mark">'+(state.done[s.id]?"done":"")+'</span>';
+    node.className="stage-node"+(i===currentIdx?" active":"")+(done?" done":"")+(unlocked?" clickable":" locked");
+    node.innerHTML='<span class="ic">'+(done?"\u2713":(unlocked?s.icon:"\ud83d\udd12"))+'</span><span class="lbl">'+s.label+'</span><span class="mark">'+(done?"done":(isRef?"reference":""))+'</span>';
     if(unlocked)node.onclick=()=>{currentIdx=i;renderPath();renderStage();document.getElementById('rail').classList.remove('open');};
     el.appendChild(node);
   });
@@ -327,14 +336,34 @@ function completeStage(bonusNote, summaryHTML, silent){
   if(summaryHTML){const wrap=document.createElement("div");wrap.innerHTML=summaryHTML;host.appendChild(wrap);}
   const isLast=currentIdx===STAGES.length-1;
   const noteText=silent?"You\u2019ve already completed this section \u2014 here\u2019s the review again.":(bonusNote||"");
+  const redoBtn='<button class="btn ghost" id="redoBtn">\u21ba redo this section</button>';
   const gate=document.createElement("div");gate.className="gate";
   gate.innerHTML=isLast
-    ?'<p class="big">\ud83c\udf89 Path complete</p><p class="earned">Total XP: '+state.xp+'</p><p class="sm">You\u2019ve finished every section.</p><button class="btn ghost" onclick="boot()">start over</button>'
-    :'<p class="big">Section complete: '+stage.label+'</p><p class="earned">'+noteText+'</p><p class="sm">Next up: '+STAGES[currentIdx+1].label+'</p><button class="btn" id="continueBtn">continue \u2192</button>';
+    ?'<p class="big">\ud83c\udf89 Path complete</p><p class="earned">Total XP: '+state.xp+'</p><p class="sm">You\u2019ve finished every section.</p><div class="ctrls" style="justify-content:center">'+redoBtn+'<button class="btn ghost" onclick="boot()">start over</button></div>'
+    :'<p class="big">Section complete: '+stage.label+'</p><p class="earned">'+noteText+'</p><p class="sm">Next up: '+STAGES[currentIdx+1].label+'</p><div class="ctrls" style="justify-content:center">'+redoBtn+'<button class="btn" id="continueBtn">continue \u2192</button></div>';
   host.appendChild(gate);
   gate.scrollIntoView({behavior:"smooth",block:"center"});
   const cont=document.getElementById("continueBtn");
   if(cont)cont.onclick=()=>{currentIdx++;renderPath();renderStage();};
+  const redo=document.getElementById("redoBtn");
+  if(redo)redo.onclick=()=>redoStage(stage.id);
+}
+
+/* Replay a single section from scratch, keeping all later sections unlocked. */
+function redoStage(stageId){
+  // mark not-done so the progress bar reflects it; leave unlockedTo untouched
+  state.done[stageId]=false;
+  // reset the relevant per-stage progress
+  if(MCQ_STATE[stageId]){delete MCQ_STATE[stageId];}
+  if(MCQ_SAVED[stageId]){delete MCQ_SAVED[stageId];}
+  if(stageId==="terminal"){TERMSTATE.taskIdx=0;TERMSTATE.cwd="~";TERMSTATE.completed=new Array(TERM_TASKS.length).fill(false);}
+  if(stageId==="sshdrill"){SSHSTATE.taskIdx=0;SSHSTATE.completed=new Array(SSH_TASKS.length).fill(false);}
+  if(stageId==="binary"){NUMSTATE.binary=0;}
+  if(stageId==="twos"){NUMSTATE.twos=0;}
+  if(stageId==="endian"){NUMSTATE.endian=0;}
+  if(stageId==="hex"){NUMSTATE.hex=0;}
+  renderPath();updateStats();renderStage();
+  toast("section reset \u2014 have another go",true);
 }
 
 /* ---------- MCQ engine: keep wrong + highlight correct + manual Next ---------- */
@@ -495,6 +524,118 @@ LESSONS.netcat=()=>mcqStage("netcat",
   {q:"The cheat sheet\u2019s <b>-e</b> flag attaches a program to a connection. Why is it treated carefully?",opts:["It only works on Tuesdays","It can create a remote-control \u2018backdoor\u2019 into a machine, so it\u2019s a technique defenders learn to recognise","It deletes netcat"],a:1,ex:"-e runs a program (such as a command shell) for whoever connects. That can hand remote control of a computer to an attacker, so security training covers it for defensive recognition. We explain it but don\u2019t drill you on building one."},
 ]);
 INIT.netcat=()=>mountMCQ("netcat");
+
+/* ===================== SSH COMMANDS (concept MCQ, after terminal drills) ===================== */
+LESSONS.sshcmd=()=>mcqStage("sshcmd",
+'<div class="eyebrow">shell basics</div><h2 class="lesson">The <code class="inl" style="font-size:.8em">ssh</code> command \u2014 using it in practice</h2>'
++'<p class="lede">You met what SSH <i>is</i> earlier. Here you learn the actual command and its everyday options.</p>'
++'<div class="define"><h4>First: how is <code class="inl">ssh</code> different from <code class="inl">nc</code>? (the common confusion)</h4>'
++'<p>You\u2019ve now met both, and they can feel like the same thing since both "connect to a computer over the network." They aren\u2019t:</p>'
++'<p><b><code class="inl">ssh</code> is a finished, secure remote-login tool.</b> It logs you in to another machine and gives you a real shell there, automatically encrypting everything and checking the server\u2019s identity. Its whole job is to <i>safely operate</i> a remote computer.</p>'
++'<p><b><code class="inl">nc</code> (netcat, from the earlier stage) is a raw, bare network pipe.</b> It just opens a connection and pushes bytes through \u2014 no encryption, no login, no identity check. It\u2019s a low-level building block for poking at ports or moving raw data.</p>'
++'<p>Analogy: <code class="inl">ssh</code> is a secure, badge-access video link into the remote machine\u2019s control room; <code class="inl">nc</code> is clipping two bare wires together to see if a signal passes.</p></div>'
++'<div class="card"><h3>Reading the command: <code class="inl">ssh [options] user@host [command]</code></h3>'
++'<div class="cmd-row"><code>user@host</code><span>who to log in as, and which machine \u2014 e.g. <code class="inl">ssh alice@10.0.0.5</code></span></div>'
++'<div class="cmd-row"><code>[options]</code><span>dash-flags that change behaviour (see below). Optional.</span></div>'
++'<div class="cmd-row"><code>[command]</code><span>optional \u2014 if given, ssh runs just that one command on the remote machine and returns, instead of opening a shell</span></div></div>'
++'<div class="card"><h3>The options worth knowing</h3>'
++'<div class="cmd-row"><code>-p PORT</code><span>connect on a specific port (default is 22). CTF servers often use a different one, e.g. <code class="inl">ssh user@host -p 2222</code></span></div>'
++'<div class="cmd-row"><code>-i FILE</code><span>use a specific private-key file to log in, e.g. <code class="inl">ssh -i key user@host</code></span></div>'
++'<div class="cmd-row"><code>-v</code><span>verbose \u2014 print extra messages, helpful when a connection won\u2019t work and you want to see why</span></div></div>'
++'<div class="define"><h4>Running one command instead of logging in</h4>'
++'<p>Normally <code class="inl">ssh user@host</code> drops you into a shell on the remote machine. But if you add a command in quotes at the end, ssh runs just <i>that</i> on the remote machine and comes straight back \u2014 no full login session. For example <code class="inl">ssh alice@10.0.0.5 "pwd"</code> runs <code class="inl">pwd</code> (print working directory, from the terminal drills) on the remote machine and shows you the result.</p></div>',
+[
+  {q:"What is the key difference between <b>ssh</b> and <b>nc</b>?",opts:["ssh is a complete, encrypted remote-login tool; nc is a raw, unencrypted network pipe","They are identical, just different names","nc is more secure than ssh"],a:0,ex:"ssh securely logs you in and operates a remote machine, encrypting everything and verifying the server. nc just pushes raw bytes through a connection with no encryption or login \u2014 a low-level building block."},
+  {q:"A CTF gives you a server on port 2222. Which option connects to it?",opts:["ssh user@host -n 2222","ssh user@host -p 2222","ssh user@host -l 2222"],a:1,ex:"-p sets the port. The default is 22, but challenges often use a different one, so -p 2222 is needed here."},
+  {q:"In <b>ssh alice@10.0.0.5 \"pwd\"</b>, what does the part in quotes do?",opts:["Sets the password","Runs that single command (here pwd) on the remote machine instead of opening a full shell","Names the key file"],a:1,ex:"If you add a command after user@host, ssh runs just that command remotely and returns, rather than giving you an interactive login shell. Here pwd \u2014 print working directory \u2014 shows the current folder on the remote machine."},
+]);
+INIT.sshcmd=()=>mountMCQ("sshcmd");
+
+/* ===================== STAGE 3c — SSH DRILL (simulated ssh command building) ===================== */
+LESSONS.sshdrill=()=>
+'<div class="eyebrow">shell basics</div><h2 class="lesson">SSH drill \u2014 build the commands yourself</h2>'
++'<p class="lede">Type each ssh command for the situation described. Hands-on, with a hint if you get it wrong.</p>'
++'<div class="define"><h4>How this drill works</h4>'
++'<p>The box below is a simulated shell \u2014 it doesn\u2019t really connect anywhere, it just checks that you build the right command for each task. Matching is forgiving about spacing. Get one wrong and a <b>hint</b> shows exactly what to type. Type <code class="inl">clear</code> to wipe the screen.</p></div>'
++'<div class="card"><h3>SSH quick reference (for the tasks below)</h3>'
++'<div class="cmd-row"><code>ssh user@host</code><span>log in to <i>host</i> as <i>user</i></span></div>'
++'<div class="cmd-row"><code>-p PORT</code><span>connect on a specific port (default 22)</span></div>'
++'<div class="cmd-row"><code>-i FILE</code><span>use a specific private-key file</span></div>'
++'<div class="cmd-row"><code>ssh user@host "CMD"</code><span>run one command remotely instead of a login shell</span></div></div>'
++'<div class="task-banner"><span class="num" id="sshNum">01</span><div class="tx" id="sshText"></div></div>'
++'<div class="task-state" id="sshState"></div>'
++'<div class="term"><div class="term-head"><i></i><i></i><i></i><span class="ttl">ssh practice shell</span></div>'
++'<div class="term-body" id="sshBody"></div>'
++'<div class="term-input-row"><span class="ps"><span class="p">you</span>:<span class="p">~</span>$</span>'
++'<input class="term-input" id="sshInput" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="type the ssh command, then press Enter"></div></div>'
++FOOT;
+
+const SSH_TASKS=[
+  {group:"Connecting",text:"Log in to the host <b>10.0.0.5</b> as the user <b>alice</b>.",hint:"form is ssh user@host: type <b>ssh alice@10.0.0.5</b>",valid:c=>/^ssh\s+alice@10\.0\.0\.5$/.test(c),run:()=>({out:"alice@10.0.0.5's password: \u2026 (connected) \u2014 you now have a shell on the remote machine"})},
+  {group:"Connecting",text:"Connect to <b>ctf.example.com</b> as <b>player</b>, but on port <b>2222</b> instead of the default.",hint:"add -p PORT: type <b>ssh player@ctf.example.com -p 2222</b>",valid:c=>/^ssh\s+player@ctf\.example\.com\s+-p\s+2222$/.test(c)||/^ssh\s+-p\s+2222\s+player@ctf\.example\.com$/.test(c),run:()=>({out:"connected to ctf.example.com on port 2222"})},
+  {group:"Connecting",text:"Connect to <b>10.0.0.5</b> as <b>alice</b> using the private-key file <b>id_rsa</b>.",hint:"add -i FILE: type <b>ssh -i id_rsa alice@10.0.0.5</b>",valid:c=>/^ssh\s+-i\s+id_rsa\s+alice@10\.0\.0\.5$/.test(c)||/^ssh\s+alice@10\.0\.0\.5\s+-i\s+id_rsa$/.test(c),run:()=>({out:"authenticated with key id_rsa \u2014 logged in"})},
+  {group:"Remote commands",text:"Without opening a full shell, run the command <b>pwd</b> on <b>10.0.0.5</b> as <b>alice</b>.",hint:"put the command in quotes after host: type <b>ssh alice@10.0.0.5 \"pwd\"</b>",valid:c=>/^ssh\s+alice@10\.0\.0\.5\s+"pwd"$/.test(c),run:()=>({out:"/home/alice\n(connection closed \u2014 it ran one command and returned)"})},
+];
+
+const SSHSTATE={taskIdx:0,completed:new Array(SSH_TASKS.length).fill(false)};
+INIT.sshdrill=()=>{
+  const body=document.getElementById("sshBody");const input=document.getElementById("sshInput");
+  function showTask(){const t=SSH_TASKS[SSHSTATE.taskIdx];document.getElementById("sshNum").textContent=String(SSHSTATE.taskIdx+1).padStart(2,"0");document.getElementById("sshText").innerHTML='<b>Task '+(SSHSTATE.taskIdx+1)+' of '+SSH_TASKS.length+' \u00b7 '+t.group+':</b> '+t.text;document.getElementById("sshState").innerHTML='<span class="done">'+SSHSTATE.completed.filter(Boolean).length+'</span> of '+SSH_TASKS.length+' tasks done';}
+  function emit(html,cls){const d=document.createElement("div");d.className="term-line"+(cls?(" "+cls):"");d.innerHTML=html;body.appendChild(d);body.scrollTop=body.scrollHeight;}
+  function escapeHtml(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+  function emitCmd(cmd){emit('<span class="ps"><span class="p">you</span>:<span class="p">~</span>$</span> '+escapeHtml(cmd));}
+  function announceGroupIfNew(){
+    const g=SSH_TASKS[SSHSTATE.taskIdx].group;
+    const prev=SSHSTATE.taskIdx>0?SSH_TASKS[SSHSTATE.taskIdx-1].group:null;
+    if(g!==prev){
+      if(prev!==null){emit("\u2014\u2014 checkpoint: \u201c"+prev+"\u201d done. Next: \u201c"+g+"\u201d \u2014\u2014","ok");}
+      emit("\u25b8 "+g.toUpperCase(),"out");
+    }
+  }
+  function normalizeOutsideQuotes(s){
+    s=s.trim();let out="",inQ=false;
+    for(let i=0;i<s.length;i++){const ch=s[i];if(ch==='"'){inQ=!inQ;out+=ch;continue;}if(!inQ&&ch===" "){if(out.endsWith(" "))continue;out+=" ";continue;}out+=ch;}
+    return out;
+  }
+  function buildFinalSummary(){
+    const refs={
+      "Connecting":[["ssh user@host","log in to a remote machine"],["ssh user@host -p PORT","connect on a specific port"],["ssh -i FILE user@host","log in with a private-key file"]],
+      "Remote commands":[["ssh user@host \"CMD\"","run one command remotely and return"]]
+    };
+    let summary='<div class="summary"><h3>SSH commands you practised</h3><p class="sub">Grouped reference for everything in this drill.</p>';
+    Object.keys(refs).forEach(g=>{summary+='<div class="summary-item"><div class="sq" style="color:var(--amber)">'+g+'</div>'+refs[g].map(r=>'<div class="sa" style="margin-top:4px"><code style="font-family:var(--mono)">'+r[0]+'</code> &mdash; '+r[1]+'</div>').join("")+'</div>';});
+    return summary+'</div>';
+  }
+  function handle(raw){
+    const cmd=normalizeOutsideQuotes(raw);if(cmd==="")return;emitCmd(cmd);
+    if(cmd==="clear"){body.innerHTML="";return;}
+    const t=SSH_TASKS[SSHSTATE.taskIdx];
+    if(t.valid(cmd)){
+      const eff=t.run()||{};
+      if(eff.out)emit(eff.out,"out");
+      if(!SSHSTATE.completed[SSHSTATE.taskIdx]){SSHSTATE.completed[SSHSTATE.taskIdx]=true;award(15);}
+      emit("\u2713 task complete","ok");
+      SSHSTATE.taskIdx++;
+      if(SSHSTATE.taskIdx>=SSH_TASKS.length){
+        input.disabled=true;
+        completeStage(SSH_TASKS.length+" ssh commands built correctly. +"+(SSH_TASKS.length*15)+" XP.",buildFinalSummary());
+        return;
+      }
+      announceGroupIfNew();showTask();
+    } else {
+      emit("hint: "+t.hint,"err");miss();
+    }
+  }
+  input.addEventListener("keydown",e=>{if(e.key==="Enter"){handle(input.value);input.value="";}});
+  if(SSHSTATE.taskIdx>=SSH_TASKS.length){
+    input.disabled=true;emit("You\u2019ve already completed this drill. Review below.","out");
+    completeStage(SSH_TASKS.length+" ssh commands built correctly.",buildFinalSummary(),true);return;
+  }
+  if(SSHSTATE.taskIdx>0){emit("Welcome back \u2014 resuming ("+SSHSTATE.completed.filter(Boolean).length+" of "+SSH_TASKS.length+" done).","out");}
+  else{emit("SSH practice shell ready. Build each command. Type 'clear' to wipe the screen.","out");}
+  emit("\u25b8 "+SSH_TASKS[SSHSTATE.taskIdx].group.toUpperCase(),"out");
+  showTask();input.focus();
+};
 
 /* ===================== STAGE 4 — TERMINAL DRILLS (simulated terminal) ===================== */
 LESSONS.terminal=()=>
@@ -663,13 +804,20 @@ LESSONS.editors=()=>mcqStage("editors",
 +'<p class="lede">Two families: editors you run inside the terminal, and full desktop apps with menus and a mouse.</p>'
 +'<p class="body">A <span class="k">text editor</span> is a program for writing and changing plain text \u2014 notes, configuration files, or program code. There are two broad kinds.</p>'
 +'<div class="card"><h3>Terminal editors (no mouse, run inside the shell)</h3>'
-+'<p class="body" style="margin-top:0">The common ones are <span class="k">nano</span>, <span class="k">vim</span>, and <span class="k">emacs</span>. <b>nano</b> is the friendliest for beginners because it lists its shortcuts along the bottom of the screen, so you don\u2019t have to memorise them. Open or create a file with <code class="inl">nano filename.txt</code> \u2014 if the file exists it opens; if not, nano creates it when you save.</p>'
++'<p class="body" style="margin-top:0">The common ones are <span class="k">nano</span>, <span class="k">vim</span>, and <span class="k">emacs</span>. <b>nano</b> is the friendliest for beginners because it lists its shortcuts along the bottom of the screen, so you don\u2019t have to memorise them. (How to open a file is explained just below.)</p>'
 +'<div class="cmd-row"><code>Ctrl+O</code><span>"write out" = save. It asks for the filename, then you press Enter</span></div>'
 +'<div class="cmd-row"><code>Ctrl+X</code><span>exit; if you have unsaved changes it asks whether to save first</span></div>'
 +'<div class="cmd-row"><code>Ctrl+K</code><span>cut (remove) the current line</span></div>'
 +'<div class="cmd-row"><code>Ctrl+U</code><span>paste the line you cut</span></div>'
 +'<div class="cmd-row"><code>Ctrl+W</code><span>"where is" = search for text</span></div>'
 +'<div class="cmd-row"><code>Ctrl+G</code><span>open the built-in help / full shortcut list</span></div></div>'
++'<div class="define"><h4>How to open (or create) a file in nano</h4>'
++'<p>To open a file in nano, type <code class="inl">nano</code> followed by the filename:</p>'
++'<p style="text-align:center"><code class="inl" style="font-size:1.05em">nano filename.txt</code></p>'
++'<p>What happens next depends on whether that file already exists:</p>'
++'<p><b>If the file exists</b> \u2014 nano opens it so you can read and edit it.</p>'
++'<p><b>If the file does NOT exist</b> \u2014 nano opens a blank screen and creates the file for you when you first save (Ctrl+O). So the same command both opens an existing file and starts a brand-new one.</p>'
++'<p>For example, <code class="inl">nano notes.txt</code> opens <code class="inl">notes.txt</code> if it\u2019s there, or starts a fresh <code class="inl">notes.txt</code> if it isn\u2019t.</p></div>'
 +'<div class="define"><h4>Reading nano\u2019s shortcuts</h4>'
 +'<p>nano writes shortcuts with a caret symbol: <code class="inl">^O</code> means "hold Ctrl and press O." It never uses the Shift key, and the letters shown in capitals still work as lowercase \u2014 so <code class="inl">^O</code> is just Ctrl+O.</p></div>'
 +'<div class="card"><h3>Desktop (GUI) editors (windows, menus, mouse \u2014 from the Lifewire guide)</h3>'
@@ -714,10 +862,16 @@ LESSONS.twos=()=>
 '<div class="eyebrow">Stage 7 \u00b7 number systems</div><h2 class="lesson">Two\u2019s complement \u2014 storing negative numbers</h2>'
 +'<p class="lede">The standard trick computers use to represent negative whole numbers in binary.</p>'
 +'<p class="body">Plain binary only writes 0 and up. To handle <b>negative</b> numbers, computers use <span class="k">two\u2019s complement</span>. The leftmost bit becomes the <span class="k">sign bit</span>: if it\u2019s 0 the number is positive, if it\u2019s 1 the number is negative.</p>'
-+'<div class="define"><h4>How to negate a number (flip its sign)</h4>'
-+'<p><b>Step 1:</b> write the positive number in binary. <b>Step 2:</b> flip every bit (0\u21941). <b>Step 3:</b> add 1.</p>'
-+'<p>Example with 4 bits: +4 is <code class="inl">0100</code>. Flip \u2192 <code class="inl">1011</code>. Add 1 \u2192 <code class="inl">1100</code>. So <code class="inl">1100</code> means \u22124.</p>'
-+'<p>To read a two\u2019s-complement number: if the sign bit is 0, convert normally. If it\u2019s 1, the number is negative \u2014 negate it (flip + add 1) to find its size, then put the minus sign back.</p></div>'
++'<div class="define"><h4>First, the big idea: the bits don\u2019t tell you if they\u2019re signed</h4>'
++'<p>Here\u2019s the part that surprises everyone. The pattern <code class="inl">10000000</code> means <b>either</b> 128 <b>or</b> \u2212128 \u2014 and you genuinely cannot tell which from the bits alone. The 8 bits are just 8 on/off states; they carry no label.</p>'
++'<p>So who decides? <b>The program does.</b> When a programmer sets up a storage slot, they declare what kind of number it holds \u2014 <span class="k">unsigned</span> (only 0 and up, 0\u2026255) or <span class="k">signed</span> (can be negative, \u2212128\u2026127). That declaration lives in the software, not in the bits. When the program reads the slot, it applies the matching rule.</p>'
++'<p>Picture a locker with <code class="inl">10000000</code> written inside, and a note on the outside \u2014 put there by whoever built it \u2014 saying "read this as signed" or "read this as unsigned." The contents are identical; the note decides how to read them. So you, on paper, can\u2019t tell \u2014 but in a real running program, the decision has always already been made.</p>'
++'<p><b>Why it matters:</b> if a program treats bits as signed when they were meant to be unsigned (or vice versa), a value like 200 can suddenly read as \u221256. That kind of mismatch is a real source of bugs and security holes \u2014 which is why this shows up in CTFs.</p></div>'
++'<div class="define"><h4>Reading a signed pattern \u2192 two routes to the same answer</h4>'
++'<p>Once you know a pattern is signed, there are <b>two ways</b> to work out its value. They always give the same answer \u2014 pick whichever feels easier to you.</p>'
++'<p><b>Route 1 \u2014 powers of 2 (place value).</b> Treat the leftmost bit as worth <b>\u2212128</b> instead of +128, then add up the place values as usual. Example: <code class="inl">11111100</code> = \u2212128+64+32+16+8+4 = \u22124. Good if you\u2019re comfortable adding with that negative place value.</p>'
++'<p><b>Route 2 \u2014 flip and add 1.</b> If the leftmost bit is 1 (so you know it\u2019s negative): flip every bit, add 1 to get the positive size, then put a minus sign in front. Example: <code class="inl">11111100</code> \u2192 flip \u2192 <code class="inl">00000011</code> \u2192 +1 \u2192 <code class="inl">00000100</code> = 4, so the original is \u22124. Good if you\u2019d rather work with ordinary positive binary.</p>'
++'<p>Both give \u22124. Route 2 has a bonus: it also works <i>backwards</i> to <b>write</b> a negative number. To store \u22124, take +4 = <code class="inl">00000100</code>, flip and add 1 \u2192 <code class="inl">11111100</code>.</p></div>'
 +'<div class="card"><h3>Try it \u2014 signed 8-bit (note the red leftmost bit)</h3>'
 +'<div class="bits" id="twBits"></div>'
 +'<div class="readout">signed value: <span class="v" id="twVal">0</span></div>'
@@ -726,19 +880,55 @@ LESSONS.twos=()=>
 +'<div id="chal-twos"></div>'+FOOT;
 INIT.twos=()=>{buildBits("twBits","twVal",8,true);numberStage("twos",3,newTwosChallenge);};
 
-/* ===================== STAGE 8 — ENDIANNESS ===================== */
+/* ===================== HEXADECIMAL (before endianness) ===================== */
+LESSONS.hex=()=>
+'<div class="eyebrow">number systems</div><h2 class="lesson">Hexadecimal \u2014 counting in base-16</h2>'
++'<p class="lede">A compact way of writing numbers that lines up neatly with bytes \u2014 which is why it shows up everywhere in computing.</p>'
++'<div class="define"><h4>The idea: sixteen digits instead of ten</h4>'
++'<p>You count in <span class="k">decimal</span> (base-10): ten digits, 0 through 9. <span class="k">Hexadecimal</span> (base-16, "hex" for short) uses <b>sixteen</b> digits. But we only have ten number symbols, so hex borrows the first six letters for the values past 9:</p>'
++'<p style="text-align:center"><code class="inl">0 1 2 3 4 5 6 7 8 9</code> then <code class="inl">A B C D E F</code></p>'
++'<p>So <b>A = 10, B = 11, C = 12, D = 13, E = 14, F = 15</b>. That\u2019s why something like <code class="inl">FE</code> is a number, not a word \u2014 F and E are just digits standing for 15 and 14.</p></div>'
++'<div class="define"><h4>How a two-digit hex number has a value</h4>'
++'<p>Same place-value idea as always, but each position is worth <b>16\u00d7</b> the one to its right. For a two-digit hex number: <b>left digit \u00d716, plus right digit.</b></p>'
++'<p>Example: <code class="inl">2F</code> = 2\u00d716 + 15 = 32 + 15 = <b>47</b>. (The F is 15.)</p>'
++'<p>Another: <code class="inl">FF</code> = 15\u00d716 + 15 = 240 + 15 = <b>255</b> \u2014 the biggest a two-digit hex number goes.</p></div>'
++'<div class="define"><h4>Why hex and bytes fit together (the "two hex chars = one byte" point)</h4>'
++'<p>Remember a byte holds 0 to 255. A two-digit hex number runs from <code class="inl">00</code> (0) to <code class="inl">FF</code> (255) \u2014 <b>exactly the same range</b>. So one byte is always precisely two hex digits: no wasted space, no overflow. That neat fit is the whole reason computing uses hex to write bytes. A four-digit hex number like <code class="inl">FEED</code> is therefore just two bytes: <code class="inl">FE</code> and <code class="inl">ED</code>. (You\u2019ll use exactly this in the endianness section next.)</p>'
++'<p>The <code class="inl">0x</code> you sometimes see (as in <code class="inl">0x2F</code>) is just a tag meaning "the following is hex," so it isn\u2019t mistaken for a decimal number.</p></div>'
++'<div class="card"><h3>Try it \u2014 set the two hex digits, watch the decimal value</h3>'
++'<div class="bits" id="hexPick"></div>'
++'<div class="readout">decimal value: <span class="v" id="hexVal">0</span></div>'
++'<div class="hint">Tap a digit to cycle it 0\u20141\u2026\u20149\u2014A\u2026\u2014F. Left digit counts sixteens, right digit counts ones.</div></div>'
++'<p class="body">Solve <b>3</b> conversion challenges to complete this stage.</p>'
++'<div id="chal-hex"></div>'+FOOT;
+INIT.hex=()=>{buildHexPicker("hexPick","hexVal");numberStage("hex",3,newHexChallenge);};
+
+/* ===================== ENDIANNESS ===================== */
 LESSONS.endian=()=>
-'<div class="eyebrow">Stage 8 \u00b7 number systems</div><h2 class="lesson">Endianness \u2014 byte order in memory</h2>'
-+'<p class="lede">When a number is too big for one slot of memory, which half goes first?</p>'
-+'<p class="body">Memory is a long row of numbered slots, each holding one <span class="k">byte</span> (8 bits). A number bigger than one byte must be split across several slots \u2014 and there are two conventions for the order. This ordering is called <span class="k">endianness</span>.</p>'
-+'<div class="define"><h4>Plain-language definitions</h4>'
-+'<p><b>Byte:</b> a group of 8 bits, the basic chunk memory is measured in. Two hex characters (like <code class="inl">FE</code>) make one byte.</p>'
-+'<p><b>Memory address:</b> the numbered position of a slot, written in hex like <code class="inl">0x4000</code>. ("0x" just signals a hexadecimal number.)</p>'
-+'<p><b>Most / least significant byte:</b> in <code class="inl">FEED</code>, <code class="inl">FE</code> is the "big" part (most significant, like the leftmost digits of a normal number) and <code class="inl">ED</code> is the "small" part (least significant).</p></div>'
-+'<div class="card"><h3>The two orders, using 0xFEED stored at address 0x4000</h3>'
-+'<div class="cmd-row"><code>Big-endian</code><span>big end first: most significant byte (FE) at the lowest address. 0x4000=FE, 0x4001=ED</span></div>'
-+'<div class="cmd-row"><code>Little-endian</code><span>little end first: least significant byte (ED) at the lowest address. 0x4000=ED, 0x4001=FE</span></div></div>'
-+'<p class="body">Big-endian is common in networking; little-endian is common inside most processors. Place <b>3</b> words correctly to finish the path.</p>'
+'<div class="eyebrow">number systems</div><h2 class="lesson">Endianness \u2014 which byte goes first</h2>'
++'<p class="lede">When a number is too big for one storage box, this is the rule for which half gets stored first.</p>'
++'<div class="define"><h4>Step 1: what a byte is, and its limit</h4>'
++'<p>Memory is a long row of numbered boxes. Each box holds one <span class="k">byte</span> \u2014 a group of 8 bits. With 8 bits the biggest value a single box can hold is <b>255</b> (that\u2019s <code class="inl">11111111</code> in binary). So one byte covers 0 to 255, and no further.</p></div>'
++'<div class="define"><h4>Step 2: a bigger number needs two boxes</h4>'
++'<p>What about a number larger than 255 \u2014 say <b>600</b>? It doesn\u2019t fit in one box, so it\u2019s spread across <b>two</b> boxes. But the two boxes aren\u2019t equal partners. One is the <b>high</b> box (worth 256\u00d7 its value) and one is the <b>low</b> box (worth its plain value). To split 600:</p>'
++'<p style="text-align:center">how many whole 256s fit in 600? \u2192 <b>2</b> (that\u2019s 512), with <b>88</b> left over</p>'
++'<p>So the <b>high box holds 2</b> (meaning 2\u00d7256 = 512) and the <b>low box holds 88</b>. Read back: 512 + 88 = 600. \u2714</p>'
++'<p>This is the <i>same place-value idea</i> as the binary you already learned \u2014 just scaled up. In binary, each position is worth 2\u00d7 the one to its right. Here, each <b>byte</b> is worth 256\u00d7 the byte to its right. Same logic, bigger step.</p></div>'
++'<div class="define"><h4>Step 3: which box comes first? (this is endianness)</h4>'
++'<p>Now the actual question. You have two bytes \u2014 a high one (2) and a low one (88) \u2014 and two boxes side by side, the first box and the next box. <b>Which byte goes in the first box?</b> There are two reasonable choices, and different computers picked differently:</p>'
++'<p><b>Big-endian</b> = "big end first": the <b>high</b> byte (2) goes in the first box, the low byte (88) in the next.</p>'
++'<p><b>Little-endian</b> = "little end first": the <b>low</b> byte (88) goes in the first box, the high byte (2) in the next.</p>'
++'<p>That\u2019s the whole concept. <span class="k">Endianness</span> is simply the convention for which end of a multi-byte number gets stored first.</p></div>'
++'<div class="define"><h4>Step 4: why does it even matter?</h4>'
++'<p>Fair question \u2014 because for <b>one computer working alone, it doesn\u2019t.</b> A computer stores its bytes in its own order and reads them back in the same order, so it always reconstructs 600 correctly. The order is invisible.</p>'
++'<p>It only matters when bytes <b>cross a boundary</b>, where the two sides might disagree about which end came first:</p>'
++'<p><b>1. Between two computers.</b> Say a big-endian machine sends 600. It sends the high byte first, so the bytes go out in the order <b>2, then 88</b>. But the little-endian receiver assumes the <i>first</i> byte it gets is the low one. So it computes: first byte 2 as the low part (\u00d71) + second byte 88 as the high part (\u00d7256) = 2 + 88\u00d7256 = <b>22530</b> \u2014 not 600. The bytes arrived intact, but the disagreement about order turned 600 into 22530. (This is why networks agreed on one standard order, "network byte order," which is big-endian.)</p>'
++'<p><b>2. Between memory and your eyes.</b> In a CTF, if you dump raw memory and see two bytes, you must know the machine\u2019s endianness to know which value they really represent \u2014 read in the wrong order, you get a different, wrong number. Forensics and binary challenges depend on getting this right.</p></div>'
++'<div class="define"><h4>A note on hex and the drill below</h4>'
++'<p>The drill below uses <b>hexadecimal</b> (base-16) for the byte values, written with a <code class="inl">0x</code> tag \u2014 e.g. <code class="inl">0xFEED</code>. The only reason hex appears is that one byte happens to be exactly two hex characters, so a two-byte number like <code class="inl">FEED</code> splits neatly into <code class="inl">FE</code> (the high byte) and <code class="inl">ED</code> (the low byte). The logic is identical to the 600 example: big-endian puts <code class="inl">FE</code> first, little-endian puts <code class="inl">ED</code> first. (If hex still feels unfamiliar, that\u2019s expected \u2014 it has its own section to come; for now just treat each two-character pair as one byte.)</p></div>'
++'<div class="define"><h4>Address vs. data \u2014 don\u2019t mix them up</h4>'
++'<p>Two different things in the drill are both written in hex, which can blur together. Keep them separate: <code class="inl">0x4000</code> is an <b>address</b> \u2014 <i>where</i> in memory (which box). <code class="inl">0xFEED</code> is the <b>data</b> \u2014 <i>what number</i> you\u2019re storing. Addresses are the box labels; data is what goes inside.</p></div>'
++'<p class="body">In the drill: you\u2019re given a two-byte value and must place its two bytes into the correct boxes (addresses <code class="inl">0x4000</code> and <code class="inl">0x4001</code>) for the requested order. Place <b>3</b> correctly to finish.</p>'
 +'<div class="challenge"><div class="qtag" id="endTag">drill</div><div class="q" id="endQ"></div>'
 +'<div class="hint">Click a byte tile to pick it up, then click an address slot to drop it in.</div>'
 +'<div class="tiles" id="endTiles"></div>'
@@ -748,6 +938,37 @@ LESSONS.endian=()=>
 +'<div class="ctrls"><button class="btn" id="endCheck">check</button><span class="hint" id="endCount" style="align-self:center"></span></div></div>'+FOOT;
 INIT.endian=()=>endianStage(3);
 
+/* ===================== HINTS (reference page \u2014 not graded) ===================== */
+LESSONS.hints=()=>
+'<div class="eyebrow">hints</div><h2 class="lesson">Hints for working through beginner CTF challenges</h2>'
++'<p class="lede">A growing collection of tips and tools for solving early Capture-the-Flag puzzles. This is a reference page \u2014 nothing to complete, just read what you need.</p>'
++'<div class="define"><h4>Running a shell in your browser (no setup needed)</h4>'
++'<p>Many beginner challenges expect you to type commands at a Linux shell, but you may not have one handy. picoCTF provides a free one that runs in your browser \u2014 no installation:</p>'
++'<p style="text-align:center"><a href="https://webshell.picoctf.org/" target="_blank" rel="noopener" style="color:var(--accent-d);font-weight:700">https://webshell.picoctf.org/</a></p>'
++'<p>Open that link to get a working shell where you can practise the commands from the earlier stages (<code class="inl">ls</code>, <code class="inl">cat</code>, <code class="inl">cd</code>, and so on) and tackle puzzles that need a real terminal.</p></div>'
++'<div class="card"><h3>CyberChef \u2014 the "Cyber Swiss Army Knife"</h3>'
++'<p class="body" style="margin-top:0"><b>What it is:</b> a free web app that transforms data \u2014 decoding, encoding, converting between formats, and much more \u2014 all in your browser. It\u2019s built and maintained by GCHQ (the UK\u2019s cyber and intelligence agency) and is a staple tool for CTF players because it handles most common encodings without any coding. The only official version is here:</p>'
++'<p style="text-align:center"><a href="https://gchq.github.io/CyberChef/" target="_blank" rel="noopener" style="color:var(--accent-d);font-weight:700">https://gchq.github.io/CyberChef/</a></p>'
++'<p class="body"><b>How it works \u2014 the "recipe" idea:</b> the left panel lists hundreds of operations (grouped into Encoding, Encryption, Hashing, and so on). You search for an operation and drag it into the middle "recipe" area, paste your text into the input box, and the result appears in the output box straight away (a feature called Auto Bake). You can stack several operations, and they run top to bottom \u2014 like steps in a recipe.</p>'
++'<p class="body"><b>The Magic operation:</b> if you don\u2019t know how something is encoded, search for the <code class="inl">Magic</code> operation and drop it in \u2014 it tries to auto-detect the encoding and suggests how to decode it. A handy first thing to try on a mystery string.</p></div>'
++'<div class="define"><h4>What is ROT13?</h4>'
++'<p>ROT13 is one of the simplest ciphers. It "rotates" each letter 13 places along the alphabet: A becomes N, B becomes O, and so on. Because the alphabet has 26 letters and 13 is exactly half, applying ROT13 a second time brings you back to the original \u2014 so the same operation both scrambles and unscrambles. It only affects letters; numbers and symbols are left alone.</p>'
++'<p><b>In CyberChef:</b> search for <code class="inl">ROT13</code> in the operations list, drag it into the recipe, and paste your scrambled text into the input. The decoded text appears instantly. (If the text was rotated by some <i>other</i> amount, the <code class="inl">ROT13 Brute Force</code> operation tries every shift and shows all results so you can spot the one that reads sensibly.)</p></div>'
++'<div class="define"><h4>Converting between bases in CyberChef</h4>'
++'<p>CyberChef has ready-made operations for the number systems from the earlier stages \u2014 for example <code class="inl">From Hex</code> / <code class="inl">To Hex</code>, <code class="inl">From Binary</code> / <code class="inl">To Binary</code>, and <code class="inl">From Decimal</code>. Search for the one you need, drag it in, paste your value, and read the converted result. It saves doing the place-value arithmetic by hand.</p></div>'
++'<div class="define"><h4>What is Base64?</h4>'
++'<p>Base64 is a way of rewriting any data \u2014 text, an image, raw bytes \u2014 using only 64 safe characters: <code class="inl">A\u2013Z</code>, <code class="inl">a\u2013z</code>, <code class="inl">0\u20139</code>, and <code class="inl">+</code> and <code class="inl">/</code>, sometimes with <code class="inl">=</code> padding at the end.</p>'
++'<p><b>Why it\u2019s needed:</b> many systems were built to carry only plain text (email is the classic case). Raw data like a photo or a file contains byte values those systems can\u2019t handle \u2014 they get corrupted or dropped in transit. Base64 rewrites the data using only characters every text system understands, so it travels safely and the receiver can rebuild the original. When you attach a file to an email, this is happening behind the scenes.</p>'
++'<p><b>It is encoding, not encryption \u2014 it hides nothing.</b> Encryption uses a key to keep data secret; Base64 has no key and provides no secrecy at all. Anyone can decode it instantly, because the rules are public. It changes the data\u2019s <i>form</i>, never protects it. So when you spot Base64, treat it as merely <i>wrapped</i>, not secured \u2014 just decode it and read what\u2019s inside. (A real system trying to "hide" a secret with only Base64 would be a security flaw \u2014 the kind a CTF might ask you to find.)</p>'
++'<p><b>You can usually recognise it</b> by its run of letters and digits, often ending in one or two <code class="inl">=</code> signs.</p>'
++'<p><b>Decoding it in CyberChef:</b> search for the <code class="inl">From Base64</code> operation, drag it into the recipe, and paste the encoded text into the input. The decoded result appears in the output.</p></div>'
++'<div class="card"><h3>Try it yourself: decode this Base64 string</h3>'
++'<p class="body" style="margin-top:0">Put what you\u2019ve just read into practice. Decode this with the <code class="inl">From Base64</code> operation in CyberChef:</p>'
++'<p style="text-align:center"><code class="inl" style="font-size:1.05em">eW91X2NyYWNrZWRfaXQ=</code></p>'
++'<p class="body"><b>Steps:</b> open CyberChef, search for <code class="inl">From Base64</code>, drag it into the recipe, then paste the string above into the input box. The decoded message appears in the output. (Notice the single <code class="inl">=</code> at the end \u2014 that\u2019s the padding character mentioned above. If you decoded it right, the message tells you so.)</p></div>'
++'<div class="footnote">This page is a reference \u2014 it doesn\u2019t award XP or need completing. More hints will be added over time. External tools (picoCTF, CyberChef) are third-party resources, linked for convenience and not affiliated with this trainer.</div>';
+INIT.hints=()=>{};
+
 /* ---------- bit toggle widget ---------- */
 function buildBits(containerId,valId,bits,signed){
   const c=document.getElementById(containerId);c.innerHTML="";const arr=new Array(bits).fill(0);
@@ -756,9 +977,32 @@ function buildBits(containerId,valId,bits,signed){
   recompute();
 }
 
+/* Hex picker: two digits, each cyclable 0..F, shows live decimal value. */
+function buildHexPicker(containerId,valId){
+  const c=document.getElementById(containerId);c.innerHTML="";
+  const HEXCHARS="0123456789ABCDEF";
+  const digits=[0,0]; // [high, low]
+  const labels=["sixteens (\u00d716)","ones (\u00d71)"];
+  for(let i=0;i<2;i++){
+    const wrap=document.createElement("div");wrap.className="bit";
+    const btn=document.createElement("button");btn.className="b";btn.textContent="0";
+    btn.onclick=()=>{digits[i]=(digits[i]+1)%16;btn.textContent=HEXCHARS[digits[i]];btn.classList.toggle("on",digits[i]!==0);recompute();};
+    const pw=document.createElement("div");pw.className="pw";pw.textContent=labels[i];
+    wrap.appendChild(btn);wrap.appendChild(pw);c.appendChild(wrap);
+  }
+  function recompute(){const v=digits[0]*16+digits[1];const el=document.getElementById(valId);el.textContent=v;}
+  recompute();
+}
+
 /* ---------- number stage controller (persists solved count in-session) ---------- */
-const NUMSTATE={binary:0,twos:0,endian:0};
+const NUMSTATE={binary:0,twos:0,endian:0,hex:0};
 function numberSummary(topic){
+  if(topic==="hex"){
+    return '<div class="summary"><h3>Section review</h3><p class="sub">Key idea to remember.</p>'
+      +'<div class="summary-item"><div class="sq">Hex digits</div><div class="sa">0\u20139 then A\u2013F (A=10, B=11, C=12, D=13, E=14, F=15). Sixteen digits in all.</div></div>'
+      +'<div class="summary-item"><div class="sq">Two hex digits = one byte</div><div class="sa">A two-digit hex value runs 00 to FF = 0 to 255 \u2014 exactly one byte\u2019s range.</div></div>'
+      +'<div class="summary-item"><div class="sq">Hex \u2192 decimal</div><div class="sa">left digit \u00d716 + right digit. e.g. 2F = 2\u00d716 + 15 = 47.</div></div></div>';
+  }
   return '<div class="summary"><h3>Section review</h3><p class="sub">Key idea to remember.</p>'+
     (topic==="binary"
       ?'<div class="summary-item"><div class="sq">Binary \u2192 decimal</div><div class="sa">Add the position-values (1,2,4,8,16\u2026) wherever there is a 1.</div></div><div class="summary-item"><div class="sq">Decimal \u2192 binary</div><div class="sa">Divide by 2 repeatedly, record remainders, read them bottom-to-top.</div></div>'
@@ -778,18 +1022,24 @@ function numberStage(topic,need,generator){
   }
   generator();
 }
-function bumpNS(topic){const ns=window["__ns_"+topic];ns.solved=ns.solved+1;if(ns.solved>=ns.need)ns.done();}
+function bumpNS(topic){const ns=window["__ns_"+topic];if(ns.solved>=ns.need)return;ns.solved=ns.solved+1;if(ns.solved>=ns.need)ns.done();}
 
 /* ---------- fill challenge (hint on wrong, manual new question) ---------- */
 function fillUI(topic,question,validator,explain,placeholder,onCorrect,regenerate){
   const host=document.getElementById("chal-"+topic);
   const ns=window["__ns_"+topic];
-  host.innerHTML='<div class="challenge"><div class="qtag">Challenge \u00b7 '+(ns.solved+1)+' of '+ns.need+'</div><div class="q">'+question+'</div><div class="fillrow"><input type="text" id="in-'+topic+'" placeholder="'+placeholder+'" autocomplete="off" spellcheck="false"><button class="btn" id="sub-'+topic+'">check</button></div><div class="verdict" id="fv-'+topic+'"></div><div class="ctrls"><div class="spacer"></div><button class="btn ghost" id="next-'+topic+'" disabled>new question \u2192</button></div></div>';
+  host.innerHTML='<div class="challenge"><div class="qtag">Challenge \u00b7 '+Math.min(ns.solved+1,ns.need)+' of '+ns.need+'</div><div class="q">'+question+'</div><div class="fillrow"><input type="text" id="in-'+topic+'" placeholder="'+placeholder+'" autocomplete="off" spellcheck="false"><button class="btn" id="sub-'+topic+'">check</button></div><div class="verdict" id="fv-'+topic+'"></div><div class="ctrls"><div class="spacer"></div><button class="btn ghost" id="next-'+topic+'" disabled>new question \u2192</button></div></div>';
   const input=document.getElementById("in-"+topic);const sub=document.getElementById("sub-"+topic);const nextBtn=document.getElementById("next-"+topic);const v=document.getElementById("fv-"+topic);
   let answered=false;
   function check(){
     if(answered)return;const raw=input.value.trim();if(raw===""){v.className="verdict no";v.textContent="Type an answer first.";return;}
-    if(validator(raw)){v.className="verdict ok";v.innerHTML='<b class="lead">Correct.</b><span class="explain">'+explain+'</span>';input.disabled=true;sub.disabled=true;answered=true;nextBtn.disabled=false;nextBtn.focus();award(15);onCorrect();}
+    if(validator(raw)){
+      v.className="verdict ok";v.innerHTML='<b class="lead">Correct.</b><span class="explain">'+explain+'</span>';
+      input.disabled=true;sub.disabled=true;answered=true;award(15);
+      onCorrect(); // increments the count and, if the stage is now finished, completes it
+      // only offer another question if the stage isn't finished yet
+      if(ns.solved<ns.need){ nextBtn.disabled=false; nextBtn.focus(); }
+    }
     else{miss();v.className="verdict no";v.innerHTML='<b class="lead">Not quite \u2014 try again.</b><span class="explain">Hint: '+explain.replace(/\.$/,"")+'.</span>';}
   }
   sub.onclick=check;input.onkeydown=e=>{if(e.key==="Enter")check();};nextBtn.onclick=()=>regenerate();input.focus();
@@ -801,10 +1051,35 @@ function newBinaryChallenge(){
   else{const n=rnd(1,255);fillUI(topic,'Convert this decimal number to 8-bit binary:<br><b style="font-family:var(--mono);font-size:20px">'+n+'</b>',v=>v.replace(/\s/g,"")===toBin(n,8),"Divide by 2 repeatedly and read remainders bottom-to-top: "+n+" = "+toBin(n,8)+".","enter 8 bits, e.g. 01001010",oc,regen);}
 }
 function newTwosChallenge(){
-  const topic="twos";const oc=()=>bumpNS(topic);const regen=()=>newTwosChallenge();const mode=rnd(0,2);
+  const topic="twos";const oc=()=>bumpNS(topic);const regen=()=>newTwosChallenge();const mode=rnd(0,3);
   if(mode===0){const n=rnd(1,120),neg=toBin((256-n)&255,8);fillUI(topic,'Write the 8-bit two\u2019s complement representation of <b>\u2212'+n+'</b>.',v=>v.replace(/\s/g,"")===neg,"Take +"+n+" = "+toBin(n,8)+", flip every bit, add 1 \u2192 "+neg+".","enter 8 bits",oc,regen);}
   else if(mode===1){const n=rnd(1,120),pat=toBin((256-n)&255,8);fillUI(topic,'This is an 8-bit two\u2019s complement number. What is its decimal value?<br><b style="font-family:var(--mono);font-size:20px">'+pat+'</b>',v=>parseInt(v,10)===-n,"Sign bit is 1, so it\u2019s negative. Flip + add 1 gives "+toBin(n,8)+" = "+n+", so the value is \u2212"+n+".","decimal, e.g. -12",oc,regen);}
-  else{const n=rnd(0,127),pat=toBin(n,8);fillUI(topic,'This is an 8-bit two\u2019s complement number. What is its decimal value?<br><b style="font-family:var(--mono);font-size:20px">'+pat+'</b>',v=>parseInt(v,10)===n,"Sign bit is 0, so it\u2019s positive \u2014 convert normally: "+pat+" = "+n+".","enter a decimal number",oc,regen);}
+  else if(mode===2){const n=rnd(0,127),pat=toBin(n,8);fillUI(topic,'This is an 8-bit two\u2019s complement number. What is its decimal value?<br><b style="font-family:var(--mono);font-size:20px">'+pat+'</b>',v=>parseInt(v,10)===n,"Sign bit is 0, so it\u2019s positive \u2014 convert normally: "+pat+" = "+n+".","enter a decimal number",oc,regen);}
+  else{const n=rnd(129,255),pat=toBin(n,8),signed=n-256;fillUI(topic,'Same bits, two meanings. These 8 bits are <b style="font-family:var(--mono);font-size:20px">'+pat+'</b>.<br>Read as an <b>UNSIGNED</b> number (0\u2013255), what decimal value is this?',v=>parseInt(v,10)===n,"Unsigned ignores any sign bit \u2014 just add the place values normally: "+pat+" = "+n+". (As a SIGNED two\u2019s complement number the very same bits would be "+signed+" instead \u2014 that\u2019s the whole point: the bits don\u2019t change, only the agreement does.)","enter a decimal number (unsigned)",oc,regen);}
+}
+function newHexChallenge(){
+  const topic="hex";const oc=()=>bumpNS(topic);const regen=()=>newHexChallenge();const mode=rnd(0,2);
+  const toHex2=n=>n.toString(16).toUpperCase().padStart(2,"0");
+  if(mode===0){ // hex -> decimal
+    const n=rnd(10,255),hx=toHex2(n);const hi=hx[0],lo=hx[1],hiv=parseInt(hi,16),lov=parseInt(lo,16);
+    fillUI(topic,'Convert this hex number to decimal:<br><b style="font-family:var(--mono);font-size:20px">'+hx+'</b>',
+      v=>parseInt(v,10)===n,
+      "left digit \u00d716 + right digit: "+hiv+"\u00d716 + "+lov+" = "+n+".",
+      "enter a decimal number",oc,regen);
+  } else if(mode===1){ // decimal -> hex
+    const n=rnd(10,255),hx=toHex2(n);
+    fillUI(topic,'Convert this decimal number to 2-digit hex:<br><b style="font-family:var(--mono);font-size:20px">'+n+'</b>',
+      v=>v.trim().toUpperCase().replace(/^0X/,"")===hx,
+      "How many whole 16s fit in "+n+"? That\u2019s the left digit; the remainder is the right digit. "+n+" = "+hx+".",
+      "enter 2 hex digits, e.g. 2F",oc,regen);
+  } else { // single letter-digit value
+    const letters=[["A",10],["B",11],["C",12],["D",13],["E",14],["F",15]];
+    const pick=letters[rnd(0,5)];
+    fillUI(topic,'In hex, what decimal value is the single digit <b style="font-family:var(--mono);font-size:20px">'+pick[0]+'</b>?',
+      v=>parseInt(v,10)===pick[1],
+      "After 9, hex letters continue: A=10, B=11, C=12, D=13, E=14, F=15. So "+pick[0]+" = "+pick[1]+".",
+      "enter a decimal number",oc,regen);
+  }
 }
 
 /* ---------- endianness drill ---------- */
