@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>cryptotrain — learn cryptography for CTF</title>
+<style>
+  :root{
+    --bg:#F7F8FA;
+    --panel:#FFFFFF;
+    --panel2:#EEF1F5;
+    --ink:#1B2230;
+    --ink2:#475067;
+    --dim:#7A8295;
+    --line:#D9DEE7;
+    --rail:#11203A;
+    --rail-ink:#E7ECF4;
+    --rail-dim:#9AA7BD;
+    --accent:#1F6FEB;
+    --accent-d:#1657c0;
+    --green:#138A5A;
+    --green-bg:#E4F6EC;
+    --amber:#9A6400;
+    --amber-bg:#FBF1DA;
+    --red:#C0392B;
+    --red-bg:#FBE7E5;
+    --term-bg:#0E1726;
+    --term-ink:#E7ECF4;
+    --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  .frame{display:grid;grid-template-columns:260px 1fr;height:100vh;max-height:100vh}
+  .rail{background:var(--rail);color:var(--rail-ink);padding:18px 0;overflow-y:auto}
+  .brand{padding:0 18px 16px;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:12px}
+  .brand h1{font-size:17px;margin:0;letter-spacing:.3px;font-weight:800}
+  .brand h1 .c{color:#6FB1FF}
+  .brand .sub{color:var(--rail-dim);font-size:12px;margin-top:3px}
+  .brand .back{display:inline-flex;align-items:center;gap:6px;margin-top:12px;color:var(--rail-dim);text-decoration:none;font-size:12px;font-weight:600;padding:5px 10px;border:1px solid rgba(255,255,255,.15);border-radius:7px;transition:.15s}
+  .brand .back:hover{color:#6FB1FF;border-color:#6FB1FF}
+  .path-list{padding:8px}
+  .path-list .group{color:var(--rail-dim);font-size:11px;letter-spacing:1px;text-transform:uppercase;padding:12px 10px 5px;user-select:none}
+  .stage-node{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:8px;position:relative;color:var(--rail-ink);cursor:default;font-size:14px}
+  .stage-node.clickable{cursor:pointer}
+  .stage-node.clickable:hover{background:rgba(255,255,255,.07)}
+  .stage-node.active{background:rgba(111,177,255,.16)}
+  .stage-node.active::before{content:"";position:absolute;left:0;top:7px;bottom:7px;width:3px;background:#6FB1FF;border-radius:2px}
+  .stage-node.locked{opacity:.45}
+  .stage-node .ic{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:rgba(255,255,255,.1);flex-shrink:0}
+  .stage-node.done .ic{background:var(--green);color:#fff}
+  .stage-node.active .ic{background:#6FB1FF;color:#0E1726}
+  .stage-node .lbl{flex:1}
+  .stage-node .mark{font-size:11px;color:var(--rail-dim)}
+  .stage-node.done .mark{color:#7FE0AE}
+  .main{display:flex;flex-direction:column;overflow:hidden}
+  .topbar{display:flex;align-items:center;gap:20px;padding:14px 24px;border-bottom:1px solid var(--line);background:var(--panel)}
+  .stat{display:flex;align-items:baseline;gap:6px}
+  .stat b{font-size:17px;font-weight:800}
+  .stat .lbl{color:var(--dim);font-size:12px}
+  .stat.xp b{color:var(--accent)}
+  .stat.streak b{color:var(--amber)}
+  .topbar .spacer{flex:1}
+  .progress-wrap{display:flex;align-items:center;gap:8px}
+  .progress-track{height:8px;background:var(--panel2);border-radius:5px;width:160px;overflow:hidden}
+  .progress-fill{height:100%;background:var(--green);width:0;transition:width .4s}
+  .progress-label{font-size:12px;color:var(--dim)}
+  .reset{background:none;border:1px solid var(--line);color:var(--dim);font-family:var(--sans);font-size:12px;padding:6px 12px;border-radius:7px;cursor:pointer}
+  .reset:hover{border-color:var(--red);color:var(--red)}
+  .menu-btn{display:none;background:none;border:1px solid var(--line);color:var(--ink);font-size:18px;padding:4px 11px;border-radius:7px;cursor:pointer}
+  .stage{flex:1;overflow-y:auto;padding:30px 34px 90px}
+  .stage-inner{max-width:760px;margin:0 auto}
+  .eyebrow{color:var(--amber);font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;font-weight:700}
+  h2.lesson{font-size:26px;margin:0 0 6px;letter-spacing:-.3px;font-weight:800}
+  .lede{color:var(--ink2);font-size:16px;margin:6px 0 18px}
+  p.body{color:var(--ink);margin:12px 0}
+  p.body .k{color:var(--accent-d);font-weight:700}
+  p.body .w{color:var(--amber);font-weight:700}
+  code.inl{background:var(--panel2);border:1px solid var(--line);padding:1px 7px;border-radius:5px;color:var(--accent-d);font-family:var(--mono);font-size:.9em}
+  .define{background:var(--amber-bg);border:1px solid #EAD9AC;border-radius:10px;padding:14px 16px;margin:14px 0}
+  .define h4{margin:0 0 6px;font-size:13px;color:var(--amber);letter-spacing:.5px;text-transform:uppercase}
+  .define p{margin:7px 0;color:#5C4A1E;font-size:14px}
+  .define p b{color:#3F3413}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:16px 0}
+  .card h3{margin:0 0 12px;font-size:15px;color:var(--ink);font-weight:800}
+  .cmd-row{display:flex;gap:14px;padding:8px 0;border-bottom:1px solid var(--line)}
+  .cmd-row:last-child{border-bottom:none}
+  .cmd-row code{color:var(--accent-d);min-width:140px;flex-shrink:0;font-family:var(--mono);font-size:13px}
+  .cmd-row span{color:var(--ink2)}
+  .challenge{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px;margin:20px 0;box-shadow:0 1px 3px rgba(20,30,50,.04)}
+  .qtag{color:var(--amber);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;font-weight:700}
+  .q{font-size:16px;margin-bottom:18px;line-height:1.55;font-weight:600}
+  .q b{color:var(--accent-d)}
+  .opts{display:grid;gap:10px}
+  .opt{text-align:left;background:var(--panel);border:1.5px solid var(--line);color:var(--ink);font-family:var(--sans);font-size:15px;padding:13px 16px;border-radius:9px;cursor:pointer;transition:.12s;display:flex;gap:10px;align-items:flex-start}
+  .opt:hover:not(:disabled){border-color:var(--accent);background:#F0F6FF}
+  .opt:disabled{cursor:default}
+  .opt .pre{color:var(--dim);font-weight:700;flex-shrink:0}
+  .opt.correct{border-color:var(--green);background:var(--green-bg)}
+  .opt.correct .pre{color:var(--green)}
+  .opt.wrong{border-color:var(--red);background:var(--red-bg)}
+  .opt.wrong .pre{color:var(--red)}
+  .opt .tag{margin-left:auto;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding-left:10px}
+  .opt.correct .tag{color:var(--green)}
+  .opt.wrong .tag{color:var(--red)}
+  .verdict{margin-top:16px;font-size:14px;min-height:10px}
+  .verdict.ok{color:var(--green)}
+  .verdict.no{color:var(--red)}
+  .verdict .explain{display:block;color:var(--ink2);margin-top:7px;line-height:1.6;font-weight:400}
+  .verdict b.lead{font-weight:800}
+  .ctrls{display:flex;gap:10px;margin-top:18px;align-items:center}
+  .ctrls .spacer{flex:1}
+  .btn{background:var(--accent);color:#fff;border:none;font-family:var(--sans);font-weight:700;font-size:14px;padding:11px 20px;border-radius:9px;cursor:pointer}
+  .btn:hover{background:var(--accent-d)}
+  .btn:disabled{opacity:.4;cursor:default;background:var(--accent)}
+  .btn.ghost{background:none;border:1.5px solid var(--line);color:var(--ink2)}
+  .btn.ghost:hover{border-color:var(--accent);color:var(--accent);background:#F0F6FF}
+  .btn.green{background:var(--green)}
+  .btn.green:hover{filter:brightness(.94)}
+  .fillrow{display:flex;gap:10px;margin-bottom:6px;flex-wrap:wrap}
+  .fillrow input{background:var(--panel);border:1.5px solid var(--line);color:var(--ink);font-family:var(--mono);font-size:16px;padding:11px 14px;border-radius:9px;width:230px;letter-spacing:.5px}
+  .fillrow input:focus{outline:none;border-color:var(--accent)}
+  .summary{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px;margin:22px 0}
+  .summary h3{margin:0 0 4px;font-size:17px;font-weight:800;color:var(--green)}
+  .summary .sub{color:var(--dim);font-size:13px;margin:0 0 16px}
+  .summary-item{padding:12px 0;border-bottom:1px solid var(--line)}
+  .summary-item:last-child{border-bottom:none}
+  .summary-item .sq{font-weight:700;color:var(--ink);font-size:14px;margin-bottom:4px}
+  .summary-item .sa{color:var(--green);font-size:14px;font-weight:700}
+  .summary-item .se{color:var(--ink2);font-size:13px;margin-top:3px}
+  .gate{background:linear-gradient(180deg,#F0F6FF,#FFFFFF);border:1px solid #C9DDFB;border-radius:14px;padding:28px 24px;margin:24px 0;text-align:center}
+  .gate .big{font-size:20px;color:var(--ink);margin:0 0 6px;font-weight:800}
+  .gate .earned{color:var(--accent-d);font-size:14px;margin-bottom:8px;font-weight:700}
+  .gate .sm{color:var(--ink2);font-size:14px;margin:0 0 20px}
+  .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:#fff;padding:12px 22px;border-radius:10px;font-size:14px;font-weight:700;opacity:0;transition:.3s;pointer-events:none;z-index:50;box-shadow:0 6px 20px rgba(20,30,50,.2)}
+  .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+  .toast.green{background:var(--green)}
+  .footnote{color:var(--dim);font-size:12px;margin-top:30px;border-top:1px solid var(--line);padding-top:14px;line-height:1.6}
+  /* hint box (blue) */
+  .hint-box{color:var(--dim);font-size:13px;margin:6px 0}
+  /* readout for interactive widgets */
+  .readout{font-size:16px;margin:10px 0 4px}
+  .readout .v{color:var(--accent-d);font-size:20px;font-weight:800;font-family:var(--mono)}
+  /* mod wheel */
+  .mod-wheel-wrap{display:flex;flex-direction:column;align-items:center;gap:12px;margin:16px 0}
+  .mod-wheel-wrap svg{max-width:260px}
+  .mod-input-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .mod-input-row input{background:var(--panel);border:1.5px solid var(--line);color:var(--ink);font-family:var(--mono);font-size:16px;padding:9px 12px;border-radius:9px;width:100px}
+  .mod-input-row input:focus{outline:none;border-color:var(--accent)}
+  .mod-input-row select{background:var(--panel);border:1.5px solid var(--line);color:var(--ink);font-family:var(--sans);font-size:14px;padding:9px 12px;border-radius:9px;cursor:pointer}
+  /* caesar wheel */
+  .caesar-wheel-wrap{display:flex;flex-direction:column;align-items:center;gap:12px;margin:16px 0}
+  .shift-control{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .shift-control input[type=range]{width:200px;accent-color:var(--accent)}
+  .shift-label{font-family:var(--mono);font-size:18px;font-weight:800;color:var(--accent-d);min-width:30px;text-align:center}
+  .alpha-row{display:flex;gap:3px;flex-wrap:wrap;margin:8px 0;font-family:var(--mono);font-size:13px}
+  .alpha-pair{display:flex;flex-direction:column;align-items:center;gap:2px}
+  .alpha-pair .plain{color:var(--ink2)}
+  .alpha-pair .ciph{color:var(--accent-d);font-weight:700}
+  .sample-word{font-family:var(--mono);font-size:16px;margin:6px 0}
+  .sample-word .arrow{color:var(--dim)}
+  /* RSA widget */
+  .rsa-widget{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:16px 0}
+  .rsa-widget h3{margin:0 0 12px;font-size:15px;color:var(--ink);font-weight:800}
+  .rsa-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+  .rsa-row label{color:var(--ink2);font-size:14px;min-width:120px}
+  .rsa-row select{background:var(--panel);border:1.5px solid var(--line);color:var(--ink);font-family:var(--sans);font-size:14px;padding:8px 12px;border-radius:9px;cursor:pointer}
+  .rsa-result{font-family:var(--mono);font-size:14px;background:var(--panel2);border-radius:8px;padding:12px 14px;margin-top:8px;line-height:1.8}
+  .rsa-result .label{color:var(--dim);font-size:12px}
+  .rsa-result .val{color:var(--accent-d);font-weight:700}
+  /* Vigenère step table */
+  .vig-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:13px;margin:12px 0}
+  .vig-table th{background:var(--panel2);color:var(--ink2);font-weight:700;padding:6px 10px;border:1px solid var(--line);text-align:center}
+  .vig-table td{padding:5px 10px;border:1px solid var(--line);text-align:center;color:var(--ink)}
+  .vig-table td.hl{color:var(--accent-d);font-weight:700}
+  .vig-table td.wrap{color:var(--amber);font-size:11px}
+  /* monospace pre block */
+  .mono-pre{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px 14px;font-family:var(--mono);font-size:13px;line-height:1.7;margin:10px 0;overflow-x:auto;white-space:pre}
+  /* lookup table for hints page */
+  .lookup-table{border-collapse:collapse;font-family:var(--mono);font-size:13px;margin:10px 0}
+  .lookup-table th{background:var(--panel2);color:var(--ink2);font-weight:700;padding:5px 10px;border:1px solid var(--line);text-align:center}
+  .lookup-table td{padding:4px 10px;border:1px solid var(--line);text-align:center;color:var(--ink)}
+  @media (max-width:760px){
+    .frame{grid-template-columns:1fr}
+    .rail{position:fixed;z-index:40;width:260px;height:100vh;transform:translateX(-100%);transition:.25s}
+    .rail.open{transform:none}
+    .menu-btn{display:inline-flex!important}
+    .stage{padding:22px 16px 90px}
+    .progress-track{width:90px}
+    h2.lesson{font-size:22px}
+  }
+</style>
+</head>
+<body>
+<div class="frame">
+  <aside class="rail" id="rail">
+    <div class="brand">
+      <h1>Crypto<span class="c">graphy</span></h1>
+      <div class="sub">Ciphers, RSA, and hash functions</div>
+      <a class="back" href="index.html">&larr; All topics</a>
+    </div>
+    <nav class="path-list" id="pathList"></nav>
+  </aside>
+  <div class="main">
+    <div class="topbar">
+      <button class="menu-btn" onclick="document.getElementById('rail').classList.toggle('open')">&#8801;</button>
+      <div class="stat xp"><b id="xp">0</b><span class="lbl">XP</span></div>
+      <div class="stat streak"><b id="streak">0</b><span class="lbl">streak</span></div>
+      <div class="spacer"></div>
+      <div class="progress-wrap"><div class="progress-track"><div class="progress-fill" id="pfill"></div></div><span class="progress-label" id="plabel">0 / 16</span></div>
+      <button class="reset" onclick="resetAll()">restart</button>
+    </div>
+    <div class="stage"><div class="stage-inner" id="stage"></div></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const STAGES=[
+  {id:"intro",icon:"?",label:"what is cryptography",group:"foundations"},
+  {id:"modarith",icon:"%",label:"modular arithmetic",group:"foundations"},
+  {id:"caesar",icon:"C",label:"caesar cipher",group:"classical ciphers"},
+  {id:"affine",icon:"Af",label:"affine cipher",group:"classical ciphers"},
+  {id:"transposition",icon:"T",label:"transposition ciphers",group:"classical ciphers"},
+  {id:"vigenere",icon:"V",label:"vigenère cipher",group:"classical ciphers"},
+  {id:"hill",icon:"H",label:"hill cipher",group:"classical ciphers"},
+  {id:"breakcaesar",icon:"B",label:"breaking caesar",group:"breaking ciphers"},
+  {id:"frequency",icon:"F",label:"frequency analysis",group:"breaking ciphers"},
+  {id:"breakvigenere",icon:"BV",label:"breaking vigenère",group:"breaking ciphers"},
+  {id:"symmetric",icon:"S",label:"symmetric crypto",group:"modern crypto"},
+  {id:"pubkey",icon:"PK",label:"public-key crypto",group:"key exchange & rsa"},
+  {id:"rsa",icon:"R",label:"rsa cryptosystem",group:"key exchange & rsa"},
+  {id:"rsaattacks",icon:"RA",label:"attacking rsa",group:"key exchange & rsa"},
+  {id:"hashing",icon:"#",label:"hashing",group:"hashing"},
+  {id:"passwordcracking",icon:"pw",label:"attacking hashes",group:"hashing"},
+  {id:"cryptohints",icon:"\u2691",label:"challenge hints",group:"reference",type:"reference"},
+  {id:"cheatsheet",icon:"\u2630",label:"quick reference",group:"reference",type:"reference"},
+];
+let state,currentIdx;
+function freshState(){const done={};STAGES.forEach(s=>done[s.id]=false);return{xp:0,streak:0,done,unlockedTo:0};}
+
+const SAVE_KEY="cryptotrain_progress_v1";
+const MCQ_SAVED={};
+function storageOK(){try{const k="__ct_test__";localStorage.setItem(k,"1");localStorage.removeItem(k);return true;}catch(e){return false;}}
+const CAN_SAVE=storageOK();
+function saveProgress(){
+  if(!CAN_SAVE)return;
+  try{
+    const blob={
+      v:1,
+      xp:state.xp,streak:state.streak,done:state.done,unlockedTo:state.unlockedTo,
+      mcq:MCQ_SAVED,
+      num:{modarith:NUMSTATE.modarith,caesar:NUMSTATE.caesar,rsa:NUMSTATE.rsa}
+    };
+    localStorage.setItem(SAVE_KEY,JSON.stringify(blob));
+  }catch(e){}
+}
+function loadProgress(){
+  if(!CAN_SAVE)return false;
+  try{
+    const raw=localStorage.getItem(SAVE_KEY);if(!raw)return false;
+    const b=JSON.parse(raw);if(!b||b.v!==1)return false;
+    state.xp=b.xp||0;state.streak=b.streak||0;
+    if(b.done)STAGES.forEach(s=>{state.done[s.id]=!!b.done[s.id];});
+    state.unlockedTo=typeof b.unlockedTo==="number"?b.unlockedTo:0;
+    if(b.mcq)Object.keys(b.mcq).forEach(k=>{MCQ_SAVED[k]=b.mcq[k];});
+    if(b.num){NUMSTATE.modarith=b.num.modarith||0;NUMSTATE.caesar=b.num.caesar||0;NUMSTATE.rsa=b.num.rsa||0;}
+    return true;
+  }catch(e){return false;}
+}
+function clearSaved(){if(!CAN_SAVE)return;try{localStorage.removeItem(SAVE_KEY);}catch(e){}}
+
+function boot(){
+  state=freshState();currentIdx=0;
+  for(const k in MCQ_STATE)delete MCQ_STATE[k];
+  for(const k in MCQ_SAVED)delete MCQ_SAVED[k];
+  NUMSTATE.modarith=0;NUMSTATE.caesar=0;NUMSTATE.rsa=0;
+  loadProgress();
+  renderPath();updateStats();renderStage();
+}
+function rnd(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+function toast(msg,green){const t=document.getElementById("toast");t.textContent=msg;t.className="toast show"+(green?" green":"");clearTimeout(t._t);t._t=setTimeout(()=>t.className="toast",1700);}
+function award(pts){state.xp+=pts;state.streak++;let b=state.streak%5===0?" \u00b7 "+state.streak+" streak!":"";toast("+"+pts+" XP"+b,true);updateStats();}
+function miss(){state.streak=0;updateStats();}
+function updateStats(){
+  document.getElementById("xp").textContent=state.xp;
+  document.getElementById("streak").textContent=state.streak;
+  const graded=STAGES.filter(s=>s.type!=="reference");
+  const total=graded.length,d=graded.filter(s=>state.done[s.id]).length;
+  document.getElementById("pfill").style.width=(d/total*100)+"%";
+  document.getElementById("plabel").textContent=d+" / "+total;
+  saveProgress();
+}
+function renderPath(){
+  const el=document.getElementById("pathList");el.innerHTML="";let lastGroup=null;
+  STAGES.forEach((s,i)=>{
+    if(s.group!==lastGroup){const g=document.createElement("div");g.className="group";g.textContent=s.group;el.appendChild(g);lastGroup=s.group;}
+    const isRef=s.type==="reference";
+    const unlocked=isRef||i<=state.unlockedTo;
+    const done=!isRef&&state.done[s.id];
+    const node=document.createElement("div");
+    node.className="stage-node"+(i===currentIdx?" active":"")+(done?" done":"")+(unlocked?" clickable":" locked");
+    node.innerHTML='<span class="ic">'+(done?"\u2713":(unlocked?s.icon:"\ud83d\udd12"))+'</span><span class="lbl">'+s.label+'</span><span class="mark">'+(done?"done":(isRef?"reference":""))+'</span>';
+    if(unlocked)node.onclick=()=>{currentIdx=i;renderPath();renderStage();document.getElementById("rail").classList.remove("open");};
+    el.appendChild(node);
+  });
+}
+function renderStage(){const s=document.getElementById("stage");const stage=STAGES[currentIdx];s.innerHTML=LESSONS[stage.id]();if(INIT[stage.id])INIT[stage.id]();s.parentElement.scrollTop=0;}
+
+function completeStage(bonusNote,summaryHTML,silent){
+  const stage=STAGES[currentIdx];
+  if(!state.done[stage.id]){state.done[stage.id]=true;if(currentIdx+1>state.unlockedTo)state.unlockedTo=currentIdx+1;}
+  renderPath();updateStats();
+  const host=document.getElementById("stage");
+  if(summaryHTML){const wrap=document.createElement("div");wrap.innerHTML=summaryHTML;host.appendChild(wrap);}
+  const isLast=currentIdx===STAGES.length-1;
+  const noteText=silent?"You\u2019ve already completed this section \u2014 here\u2019s the review again.":(bonusNote||"");
+  const redoBtn='<button class="btn ghost" id="redoBtn">\u21ba redo this section</button>';
+  const gate=document.createElement("div");gate.className="gate";
+  gate.innerHTML=isLast
+    ?'<p class="big">\ud83c\udf89 Path complete</p><p class="earned">Total XP: '+state.xp+'</p><p class="sm">You\u2019ve finished every section.</p><div class="ctrls" style="justify-content:center">'+redoBtn+'<button class="btn ghost" onclick="boot()">start over</button></div>'
+    :'<p class="big">Section complete: '+stage.label+'</p><p class="earned">'+noteText+'</p><p class="sm">Next up: '+STAGES[currentIdx+1].label+'</p><div class="ctrls" style="justify-content:center">'+redoBtn+'<button class="btn" id="continueBtn">continue \u2192</button></div>';
+  host.appendChild(gate);
+  gate.scrollIntoView({behavior:"smooth",block:"center"});
+  const cont=document.getElementById("continueBtn");
+  if(cont)cont.onclick=()=>{currentIdx++;renderPath();renderStage();};
+  const redo=document.getElementById("redoBtn");
+  if(redo)redo.onclick=()=>redoStage(stage.id);
+}
+
+function redoStage(stageId){
+  state.done[stageId]=false;
+  if(MCQ_STATE[stageId]){delete MCQ_STATE[stageId];}
+  if(MCQ_SAVED[stageId]){delete MCQ_SAVED[stageId];}
+  if(stageId==="modarith"){NUMSTATE.modarith=0;}
+  if(stageId==="caesar"){NUMSTATE.caesar=0;}
+  if(stageId==="rsa"){NUMSTATE.rsa=0;}
+  renderPath();updateStats();renderStage();
+  toast("section reset \u2014 have another go",true);
+}
+
+/* ---------- MCQ engine ---------- */
+const MCQ_STATE={};
+function mcqStage(id,intro,questions){
+  if(!MCQ_STATE[id]){
+    const saved=Array.isArray(MCQ_SAVED[id])&&MCQ_SAVED[id].length===questions.length?MCQ_SAVED[id].slice():new Array(questions.length).fill(false);
+    MCQ_STATE[id]={questions,idx:0,solved:saved,answered:saved.slice()};
+  }else{MCQ_STATE[id].questions=questions;}
+  return intro+'<div id="mcq-'+id+'"></div>';
+}
+function mountMCQ(id){
+  const st=MCQ_STATE[id];
+  if(st.solved.every(Boolean)){finishMCQ(id,true);return;}
+  if(st.solved[st.idx]){for(let j=0;j<st.questions.length;j++){if(!st.solved[j]){st.idx=j;break;}}}
+  renderMCQItem(id);
+}
+function renderMCQItem(id){
+  const st=MCQ_STATE[id];const host=document.getElementById("mcq-"+id);const i=st.idx;const q=st.questions[i];const letters=["A","B","C","D","E"];const solvedCount=st.solved.filter(Boolean).length;
+  host.innerHTML='<div class="challenge"><div class="qtag">Question '+(i+1)+' of '+st.questions.length+' \u00b7 '+solvedCount+' answered</div><div class="q">'+q.q+'</div><div class="opts" id="opts-'+id+'">'+q.opts.map((o,k)=>'<button class="opt" data-k="'+k+'"><span class="pre">'+letters[k]+'</span><span>'+o+'</span></button>').join("")+'</div><div class="verdict" id="v-'+id+'"></div><div class="ctrls"><div class="spacer"></div><button class="btn" id="next-'+id+'" disabled>next \u2192</button></div></div>';
+  const v=document.getElementById("v-"+id);
+  const nextBtn=document.getElementById("next-"+id);
+  host.querySelectorAll(".opt").forEach(btn=>{
+    btn.onclick=()=>{
+      const k=+btn.dataset.k;
+      host.querySelectorAll(".opt").forEach((b,idx)=>{
+        b.disabled=true;
+        if(idx===q.a){b.classList.add("correct");b.querySelector(".tag")||b.insertAdjacentHTML("beforeend",'<span class="tag">correct</span>');}
+        if(idx===k&&k!==q.a){b.classList.add("wrong");b.insertAdjacentHTML("beforeend",'<span class="tag">your pick</span>');}
+      });
+      if(k===q.a){
+        v.className="verdict ok";v.innerHTML='<b class="lead">Correct.</b><span class="explain">'+q.ex+'</span>';
+        if(!st.solved[i]){st.solved[i]=true;MCQ_SAVED[id]=st.solved.slice();award(10);}
+      }else{
+        v.className="verdict no";v.innerHTML='<b class="lead">Not quite \u2014 the right answer is highlighted above.</b><span class="explain">'+q.ex+'</span>';
+        miss();
+      }
+      st.answered[i]=true;nextBtn.disabled=false;nextBtn.focus();
+    };
+  });
+  nextBtn.onclick=()=>advanceMCQ(id);
+}
+function advanceMCQ(id){
+  const st=MCQ_STATE[id];
+  if(st.solved.every(Boolean)){finishMCQ(id);return;}
+  const n=st.questions.length;let found=-1;
+  for(let step=1;step<=n;step++){let j=(st.idx+step)%n;if(!st.solved[j]){found=j;break;}}
+  st.idx=found<0?st.idx:found;
+  renderMCQItem(id);
+}
+function finishMCQ(id,silent){
+  const st=MCQ_STATE[id];
+  const items=st.questions.map((q,n)=>'<div class="summary-item"><div class="sq">'+(n+1)+'. '+stripTags(q.q)+'</div><div class="sa">\u2713 '+q.opts[q.a]+'</div><div class="se">'+q.ex+'</div></div>').join("");
+  const summary='<div class="summary"><h3>Section review</h3><p class="sub">The correct answer to each question, for reference.</p>'+items+'</div>';
+  completeStage("All "+st.questions.length+" questions answered correctly. +"+(st.questions.length*10)+" XP.",summary,silent);
+}
+function stripTags(s){return s.replace(/<[^>]+>/g,"");}
+
+/* ---------- Number stage controller ---------- */
+const NUMSTATE={modarith:0,caesar:0,rsa:0};
+function numberSummary(topic){
+  const summaries={
+    modarith:'<div class="summary"><h3>Section review</h3><p class="sub">Key idea to remember.</p><div class="summary-item"><div class="sq">Modulo</div><div class="sa">a mod n = remainder of a&divide;n. Result is always 0&hellip;n&minus;1.</div></div><div class="summary-item"><div class="sq">Alphabet wrap</div><div class="sa">Letters are numbered a=0&hellip;z=25. Shifting past z wraps back to a using mod 26.</div></div></div>',
+    caesar:'<div class="summary"><h3>Section review</h3><p class="sub">Key idea to remember.</p><div class="summary-item"><div class="sq">Caesar encrypt</div><div class="sa">(position + key) mod 26. Decrypt: (position &minus; key) mod 26.</div></div><div class="summary-item"><div class="sq">Wrap-around</div><div class="sa">z shifted by 3 becomes c: (25+3) mod 26 = 2 = c.</div></div></div>',
+    rsa:'<div class="summary"><h3>Section review</h3><p class="sub">Key idea to remember.</p><div class="summary-item"><div class="sq">RSA formulas</div><div class="sa">Encrypt: c = m^e mod n. Decrypt: m = c^d mod n.</div></div><div class="summary-item"><div class="sq">Security</div><div class="sa">With a large enough n, working out the private key from the public key is computationally infeasible.</div></div></div>'
+  };
+  return summaries[topic]||"";
+}
+function numberStage(topic,need,generator){
+  window["__ns_"+topic]={need,topic,
+    get solved(){return NUMSTATE[topic];},
+    set solved(v){NUMSTATE[topic]=v;},
+    done:()=>{completeStage(need+" challenges solved. +"+(need*15)+" XP.",numberSummary(topic));}
+  };
+  if(NUMSTATE[topic]>=need){completeStage(need+" challenges solved.",numberSummary(topic),true);return;}
+  generator();
+}
+function bumpNS(topic){const ns=window["__ns_"+topic];if(ns.solved>=ns.need)return;ns.solved=ns.solved+1;if(ns.solved>=ns.need)ns.done();}
+
+function fillUI(topic,question,validator,explain,placeholder,onCorrect,regenerate){
+  const host=document.getElementById("chal-"+topic);
+  const ns=window["__ns_"+topic];
+  host.innerHTML='<div class="challenge"><div class="qtag">Challenge \u00b7 '+Math.min(ns.solved+1,ns.need)+' of '+ns.need+'</div><div class="q">'+question+'</div><div class="fillrow"><input type="text" id="in-'+topic+'" placeholder="'+placeholder+'" autocomplete="off" spellcheck="false"><button class="btn" id="sub-'+topic+'">check</button></div><div class="verdict" id="fv-'+topic+'"></div><div class="ctrls"><div class="spacer"></div><button class="btn ghost" id="next-'+topic+'" disabled>new question \u2192</button></div></div>';
+  const input=document.getElementById("in-"+topic);const sub=document.getElementById("sub-"+topic);const nextBtn=document.getElementById("next-"+topic);const v=document.getElementById("fv-"+topic);
+  let answered=false;
+  function check(){
+    if(answered)return;const raw=input.value.trim();if(raw===""){v.className="verdict no";v.textContent="Type an answer first.";return;}
+    if(validator(raw)){
+      v.className="verdict ok";v.innerHTML='<b class="lead">Correct.</b><span class="explain">'+explain+'</span>';
+      input.disabled=true;sub.disabled=true;answered=true;award(15);
+      onCorrect();
+      if(ns.solved<ns.need){nextBtn.disabled=false;nextBtn.focus();}
+    }else{miss();v.className="verdict no";v.innerHTML='<b class="lead">Not quite \u2014 try again.</b><span class="explain">Hint: '+explain.replace(/\.$/,"")+'.</span>';}
+  }
+  sub.onclick=check;input.onkeydown=e=>{if(e.key==="Enter")check();};nextBtn.onclick=()=>regenerate();input.focus();
+}
+
+const LESSONS={},INIT={};
+
+/* ===== HELPER: escape HTML for inline display ===== */
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+
+/* ===== STAGE 1: intro ===== */
+LESSONS.intro=()=>mcqStage("intro",
+'<div class="eyebrow">Stage 1 &middot; foundations</div><h2 class="lesson">What cryptography is &mdash; hiding messages in plain sight</h2>'
++'<p class="lede">The science of protecting a message so only the intended reader can understand it.</p>'
++'<p class="body">Cryptography is an ancient field. The word comes from Greek roots meaning &ldquo;hidden&rdquo; (kryptos) and &ldquo;to write&rdquo; (graphein) &mdash; literally &ldquo;hidden writing.&rdquo; Its job is to let two people communicate secretly even when an enemy can see what&rsquo;s being sent.</p>'
++'<p class="body">Encryption is the act of changing information so that only people who should see it can understand it. The encrypted data ideally looks like a meaningless mess to everyone else. The original readable message is called the <strong>plaintext</strong> (or cleartext); the scrambled version is the <strong>ciphertext</strong>.</p>'
++'<p class="body">Cryptography aims to provide four properties:</p>'
++'<div class="define"><h4>The four goals of cryptography</h4>'
++'<p><b>Confidentiality:</b> no unintended person can read the message.</p>'
++'<p><b>Integrity:</b> if a message is tampered with, it&rsquo;s possible to detect that.</p>'
++'<p><b>Authentication:</b> the identity of the sender can be verified.</p>'
++'<p><b>Nonrepudiation:</b> a sender cannot later deny having sent a message they sent.</p></div>'
++'<div class="define"><h4>Plaintext vs ciphertext vs cipher</h4>'
++'<p><b>Plaintext / cleartext:</b> the original, readable message. <b>Ciphertext:</b> the scrambled, encrypted message. <b>Cipher:</b> a method for turning one into the other.</p></div>'
++'<div class="define"><h4>Encrypt vs decrypt</h4>'
++'<p><b>Encrypt:</b> turn plaintext into ciphertext. <b>Decrypt:</b> turn ciphertext back into plaintext. A &ldquo;key&rdquo; is the secret piece of information that controls how this is done.</p></div>',
+[
+  {q:"What does &ldquo;cryptography&rdquo; literally mean, from its Greek roots?",opts:["&ldquo;Hidden writing&rdquo;","&ldquo;Number writing&rdquo;","&ldquo;Fast writing&rdquo;"],a:0,ex:"kryptos = &ldquo;hidden,&rdquo; graphein = &ldquo;to write.&rdquo; Cryptography is the science of hidden writing &mdash; protecting a message so only the intended reader understands it."},
+  {q:"A message has been scrambled so an eavesdropper sees only gibberish. What is the scrambled version called?",opts:["The plaintext","The ciphertext","The key"],a:1,ex:"The readable original is the plaintext/cleartext; the scrambled result is the ciphertext. The key is the secret that controls the scrambling."},
+  {q:"Which cryptographic property is about detecting whether a message was changed in transit?",opts:["Confidentiality","Nonrepudiation","Integrity"],a:2,ex:"Integrity means tampering can be detected. Confidentiality is about keeping the contents secret; nonrepudiation stops a sender from denying they sent something."},
+  {q:"What does it mean to &ldquo;decrypt&rdquo; a message?",opts:["Turn ciphertext back into the original plaintext","Delete the message permanently","Send the message faster"],a:0,ex:"Decryption reverses encryption, recovering the readable plaintext from the ciphertext &mdash; normally only possible with the correct key."},
+]);
+INIT.intro=()=>mountMCQ("intro");
+
+/* ===== STAGE 2: modarith (interactive) ===== */
+LESSONS.modarith=()=>{
+return '<div class="eyebrow">Stage 2 &middot; foundations</div><h2 class="lesson">Modular arithmetic &mdash; counting on a circle</h2>'
++'<p class="lede">The &ldquo;wrap-around&rdquo; arithmetic that nearly every cipher and public-key system relies on.</p>'
++'<p class="body">The modulo operation, usually written <code class="inl">%</code> or &ldquo;mod,&rdquo; gives the remainder after division. For example, <code class="inl">5 mod 2 = 1</code>, because dividing 5 by 2 leaves a remainder of 1. And <code class="inl">8 mod 3 = 2</code>, because 3 fits into 8 twice with 2 left over.</p>'
++'<p class="body">A &ldquo;modular environment&rdquo; only uses the numbers that can appear as remainders. In mod 6, the only possible values are 0, 1, 2, 3, 4, 5 &mdash; once you reach 6 you wrap back to 0. This is exactly how a clock works: a clock is a mod-12 environment, and 24-hour military time is a mod-24 environment.</p>'
++'<div class="define"><h4>The modulo operator</h4>'
++'<p><code class="inl">a mod n</code> is the remainder when you divide <code class="inl">a</code> by <code class="inl">n</code>. The result is always between 0 and n&minus;1. Think of the numbers as arranged on a circle of size n instead of on a straight line: counting past the top wraps back to 0.</p></div>'
++'<p class="body">When you do any operation in a modular environment, you finish by taking the modulo of the result. For example: <code class="inl">7 &times; 5 (mod 6) = 35 (mod 6) = 5</code>, because 35 divided by 6 leaves remainder 5.</p>'
++'<div class="define"><h4>Why the alphabet wraps with mod 26</h4>'
++'<p>The English alphabet has 26 letters. Number them a=0, b=1, &hellip; z=25. If you count past z, you want to wrap back to a &mdash; and taking the position mod 26 does exactly that. For example, <code class="inl">25 + 3 = 28</code>, and <code class="inl">28 mod 26 = 2</code>, so position 25 (the last letter) plus 3 lands on position 2 (the third letter). You&rsquo;ll see this used directly in the next stage.</p></div>'
++'<div class="card"><h3>Try it &mdash; mod wheel</h3>'
++'<div class="mod-wheel-wrap"><div class="mod-input-row">'
++'<label style="color:var(--ink2);font-size:14px">Number:&nbsp;</label>'
++'<input type="number" id="modNumIn" value="28" min="0" max="999" style="width:80px">'
++'<label style="color:var(--ink2);font-size:14px">&nbsp;mod&nbsp;</label>'
++'<select id="modNSel"><option value="26" selected>26 (alphabet)</option><option value="12">12 (clock)</option><option value="6">6</option></select>'
++'</div>'
++'<canvas id="modCanvas" width="260" height="260"></canvas>'
++'<div class="readout">result: <span class="v" id="modResult">2</span></div></div></div>'
++'<p class="body">Solve <b>3</b> modulo challenges to complete this stage. A wrong answer gives a hint.</p>'
++'<div id="chal-modarith"></div>';
+};
+INIT.modarith=()=>{
+  function drawWheel(){
+    const canvas=document.getElementById("modCanvas");if(!canvas)return;
+    const ctx=canvas.getContext("2d");
+    const n=parseInt(document.getElementById("modNSel").value)||26;
+    const num=parseInt(document.getElementById("modNumIn").value)||0;
+    const result=((num%n)+n)%n;
+    document.getElementById("modResult").textContent=result;
+    const W=260,cx=130,cy=130,R=100,r=12;
+    ctx.clearRect(0,0,W,W);
+    ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.strokeStyle="#D9DEE7";ctx.lineWidth=2;ctx.stroke();
+    for(let i=0;i<n;i++){
+      const ang=-Math.PI/2+(2*Math.PI*i/n);
+      const x=cx+R*Math.cos(ang),y=cy+R*Math.sin(ang);
+      const isResult=i===result;
+      ctx.beginPath();ctx.arc(x,y,isResult?r+3:r,0,Math.PI*2);
+      ctx.fillStyle=isResult?"#1F6FEB":"#EEF1F5";ctx.fill();
+      ctx.strokeStyle=isResult?"#1657c0":"#D9DEE7";ctx.lineWidth=1.5;ctx.stroke();
+      ctx.fillStyle=isResult?"#fff":"#475067";
+      ctx.font=(isResult?"bold ":"")+"10px monospace";ctx.textAlign="center";ctx.textBaseline="middle";
+      ctx.fillText(i<=9?i:(n<=26?String.fromCharCode(64+i):i),x,y);
+    }
+    const ang=-Math.PI/2+(2*Math.PI*result/n);
+    const x=cx+R*Math.cos(ang),y=cy+R*Math.sin(ang);
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(x,y);ctx.strokeStyle="#1F6FEB";ctx.lineWidth=2;ctx.stroke();
+  }
+  document.getElementById("modNumIn").addEventListener("input",drawWheel);
+  document.getElementById("modNSel").addEventListener("change",drawWheel);
+  drawWheel();
+  numberStage("modarith",3,newModChallenge);
+};
+function newModChallenge(){
+  const topic="modarith";const oc=()=>bumpNS(topic);const regen=()=>newModChallenge();
+  const scenarios=[
+    ()=>{const a=rnd(10,50),n=26;const ans=((a%n)+n)%n;return[`What is <b>${a} mod ${n}</b>?`,v=>parseInt(v,10)===ans,`Divide ${a} by ${n}: quotient ${Math.floor(a/n)}, remainder ${ans}. So ${a} mod ${n} = ${ans}.`,"enter a number"];},
+    ()=>{const a=rnd(2,8)*6+rnd(1,5),n=6;const ans=((a%n)+n)%n;return[`What is <b>${a} mod ${n}</b>?`,v=>parseInt(v,10)===ans,`Divide ${a} by ${n}: ${Math.floor(a/n)}&times;${n}=${Math.floor(a/n)*n}, remainder ${ans}.`,"enter a number"];},
+    ()=>{const h=rnd(13,23),n=12;const ans=((h%n)+n)%n;return[`On a 12-hour clock, what is <b>${h} mod ${n}</b>?`,v=>parseInt(v,10)===ans,`${h} divided by 12 leaves remainder ${ans}. Like ${h}:00 on a 12-hour clock shows ${ans===0?12:ans}.`,"enter a number"];}
+  ];
+  const pick=scenarios[rnd(0,2)]();
+  fillUI(topic,pick[0],pick[1],pick[2],pick[3],oc,regen);
+}
+
+/* ===== STAGE 3: caesar (interactive) ===== */
+LESSONS.caesar=()=>{
+return '<div class="eyebrow">Stage 3 &middot; classical ciphers</div><h2 class="lesson">Caesar cipher &mdash; shifting the alphabet</h2>'
++'<p class="lede">Probably the oldest and easiest cipher: shift every letter a fixed number of places.</p>'
++'<p class="body">The Caesar cipher is named after Julius Caesar, who used it for private communication. It&rsquo;s a substitution cipher: each letter of the message is replaced by another letter a fixed number of positions further along the alphabet. That fixed number is the key, also called the shift.</p>'
++'<p class="body">Example with a shift of 3: &ldquo;hello&rdquo; becomes &ldquo;khoor&rdquo; &mdash; h&rarr;k, e&rarr;h, l&rarr;o, l&rarr;o, o&rarr;r. When a shift runs off the end of the alphabet, it wraps around: z with a shift of 3 becomes c (the mod-26 wrap from the previous stage).</p>'
++'<div class="define"><h4>Substitution cipher</h4>'
++'<p>A cipher that replaces each letter (or symbol) with another, according to a fixed rule. The Caesar cipher is the simplest example &mdash; the rule is just &ldquo;shift by a fixed amount.&rdquo;</p></div>'
++'<div class="define"><h4>How the math works (a=0 trick)</h4>'
++'<p>Number the letters a=0, b=1, &hellip; z=25. To encrypt with shift k: <code class="inl">(position + k) mod 26</code>. To decrypt: <code class="inl">(position &minus; k) mod 26</code>.</p></div>'
++'<p class="body">The Caesar cipher is very easy to break, which is why it&rsquo;s a teaching example rather than real security. We cover breaking it in a later stage.</p>'
++'<div class="define"><h4>Caesar is a special case of the Affine cipher</h4>'
++'<p>The next stage covers the Affine cipher, which applies a formula <code class="inl">(a&times;x + b) mod 26</code>. A Caesar cipher is just an Affine cipher where a = 1: the formula reduces to <code class="inl">(x + b) mod 26</code>, a plain shift by b.</p></div>'
++'<div class="card"><h3>Try it &mdash; Caesar shift wheel</h3>'
++'<div class="caesar-wheel-wrap">'
++'<div class="shift-control"><span style="color:var(--ink2);font-size:14px">Shift:</span><input type="range" id="caesarShift" min="1" max="25" value="3"><span class="shift-label" id="shiftVal">3</span></div>'
++'<div class="alpha-row" id="alphaRow"></div>'
++'<div class="sample-word">encrypt "hello": <span class="arrow">&rarr;</span> <span id="sampleOut" style="color:var(--accent-d);font-weight:700;font-family:var(--mono)"></span></div>'
++'</div></div>'
++'<p class="body">Solve <b>3</b> Caesar challenges to complete this stage.</p>'
++'<div id="chal-caesar"></div>';
+};
+INIT.caesar=()=>{
+  function updateWheel(){
+    const k=parseInt(document.getElementById("caesarShift").value)||3;
+    document.getElementById("shiftVal").textContent=k;
+    const row=document.getElementById("alphaRow");row.innerHTML="";
+    for(let i=0;i<26;i++){
+      const plain=String.fromCharCode(97+i);
+      const ciph=String.fromCharCode(97+(i+k)%26);
+      const pair=document.createElement("div");pair.className="alpha-pair";
+      pair.innerHTML='<span class="plain">'+plain+'</span><span class="ciph">'+ciph+'</span>';
+      row.appendChild(pair);
+    }
+    const enc="hello".split("").map(c=>String.fromCharCode(97+(c.charCodeAt(0)-97+k)%26)).join("");
+    document.getElementById("sampleOut").textContent=enc;
+  }
+  document.getElementById("caesarShift").addEventListener("input",updateWheel);
+  updateWheel();
+  numberStage("caesar",3,newCaesarChallenge);
+};
+function newCaesarChallenge(){
+  const topic="caesar";const oc=()=>bumpNS(topic);const regen=()=>newCaesarChallenge();
+  const mode=rnd(0,2);
+  if(mode===0){
+    const letter=String.fromCharCode(97+rnd(0,25));const k=rnd(1,12);
+    const enc=String.fromCharCode(97+(letter.charCodeAt(0)-97+k)%26);
+    fillUI(topic,`Encrypt the letter <b>${letter}</b> with a shift of <b>${k}</b>.`,v=>v.trim().toLowerCase()===enc,`(position of ${letter} = ${letter.charCodeAt(0)-97}) + ${k} mod 26 = ${(letter.charCodeAt(0)-97+k)%26} = ${enc}.`,"one letter",oc,regen);
+  }else if(mode===1){
+    const k=rnd(1,12);
+    const pos=rnd(26-k,25);const letter=String.fromCharCode(97+pos);
+    const enc=String.fromCharCode(97+(pos+k)%26);
+    fillUI(topic,`Encrypt the letter <b>${letter}</b> with a shift of <b>${k}</b>. (It wraps around.)`,v=>v.trim().toLowerCase()===enc,`(${pos} + ${k}) mod 26 = ${(pos+k)%26} = ${enc}. Wraps around the alphabet.`,"one letter",oc,regen);
+  }else{
+    const k=rnd(1,12);
+    const enc=String.fromCharCode(97+rnd(k,25));
+    const plain=String.fromCharCode(97+(enc.charCodeAt(0)-97-k+26)%26);
+    fillUI(topic,`Decrypt the letter <b>${enc}</b> that was encrypted with a shift of <b>${k}</b>.`,v=>v.trim().toLowerCase()===plain,`Subtract the shift: (${enc.charCodeAt(0)-97} &minus; ${k} + 26) mod 26 = ${(enc.charCodeAt(0)-97-k+26)%26} = ${plain}.`,"one letter",oc,regen);
+  }
+}
+
+/* ===== STAGE 4: affine ===== */
+LESSONS.affine=()=>mcqStage("affine",
+'<div class="eyebrow">Stage 4 &middot; classical ciphers</div><h2 class="lesson">Affine cipher &mdash; a formula instead of a fixed shift</h2>'
++'<p class="lede">A substitution cipher where the replacement is computed with a small linear formula.</p>'
++'<p class="body">The Affine cipher is a substitution cipher that uses a formula. Each letter is assigned a numerical value (a=0, b=1, and so on). Then a linear function is applied, and the result is taken mod 26 (the number of letters) and converted back to a letter.</p>'
++'<div class="define"><h4>The Affine formula</h4>'
++'<p>If a letter&rsquo;s numerical value is <code class="inl">x</code>, the encrypted value is <code class="inl">(a&times;x + b) mod m</code>, where <code class="inl">m</code> is the number of letters in the alphabet (so m = 26 for English), and <code class="inl">a</code> and <code class="inl">b</code> are the two keys. Writing it out for English, that&rsquo;s <code class="inl">(a&times;x + b) mod 26</code>.</p></div>'
++'<p class="body">Because it uses two keys (a and b), the Affine cipher has more possible keys than a plain Caesar shift. But notice the connection: a Caesar cipher is just an Affine cipher with a = 1, since then the formula becomes <code class="inl">(x + b) mod 26</code> &mdash; a simple shift by b.</p>'
++'<p class="body">The Affine cipher is still a fixed substitution (each plaintext letter always maps to the same ciphertext letter), so it remains vulnerable to the same kind of analysis that breaks Caesar &mdash; covered in the &ldquo;breaking ciphers&rdquo; group.</p>',
+[
+  {q:"What is the encryption formula for an Affine cipher (x = letter value, m = alphabet size)?",opts:["x + 13","(a &times; x + b) mod m","x &times; x mod m"],a:1,ex:"The Affine cipher applies the linear function a&times;x + b and then takes the result mod m, the number of letters."},
+  {q:"An Affine cipher with which value of &lsquo;a&rsquo; is exactly a Caesar cipher?",opts:["a = 0","a = 26","a = 1"],a:2,ex:"With a = 1 the formula becomes (x + b) mod m, which is just a fixed shift by b &mdash; that&rsquo;s a Caesar cipher."},
+  {q:"Why is the Affine cipher still a &ldquo;substitution&rdquo; cipher?",opts:["Each plaintext letter is consistently replaced by one ciphertext letter","It moves letters to new positions","It uses a different alphabet each time"],a:0,ex:'The formula maps each letter to a fixed replacement, so it&rsquo;s substitution. ("Moving letters to new positions" would instead describe transposition, covered separately.)'},
+]);
+INIT.affine=()=>mountMCQ("affine");
+
+/* ===== STAGE 5: transposition ===== */
+LESSONS.transposition=()=>mcqStage("transposition",
+'<div class="eyebrow">Stage 5 &middot; classical ciphers</div><h2 class="lesson">Transposition ciphers &mdash; same letters, new order</h2>'
++'<p class="lede">Instead of replacing letters, you rearrange them.</p>'
++'<p class="body">In a transposition cipher, you don&rsquo;t replace letters with other symbols &mdash; you change the order in which they appear. The simplest example is a rotation: shift all the letters one position to the right and wrap around. &ldquo;pico&rdquo; rotated right by one becomes &ldquo;opic.&rdquo;</p>'
++'<p class="body">More complex transpositions use a fixed mapping that reorders letters in fixed-size chunks. If a chunk is shorter than the block size, you fill it out with a padding symbol (e.g. <code class="inl">*</code>) so the mapping still applies.</p>'
++'<div class="define"><h4>Substitution vs transposition</h4>'
++'<p><b>Substitution</b> changes <em>what</em> the letters are (Caesar and Affine, which you&rsquo;ve seen, and Vigen&egrave;re in the next stage). <b>Transposition</b> changes <em>where</em> the letters are &mdash; it scrambles their order but keeps the same set of letters.</p></div>'
++'<p class="body">A weakness shared by both simple substitution and simple transposition: if used alone, they&rsquo;re easy to crack, and if the attacker discovers the algorithm, the cipher is broken forever. The fix is to base the encryption on a key (next stages), so that knowing the algorithm isn&rsquo;t enough.</p>',
+[
+  {q:"How does a transposition cipher differ from a substitution cipher?",opts:["It deletes every other letter","It rearranges the order of the letters rather than replacing them","It only works on numbers"],a:1,ex:"Transposition keeps the same letters but changes their positions. Substitution replaces each letter with a different symbol."},
+  {q:"Why is padding (e.g. adding &lsquo;*&rsquo;) sometimes used in a block transposition?",opts:["To make the message longer for no reason","To encrypt the spaces","To fill out a chunk that is shorter than the block size so the mapping still applies"],a:2,ex:"A fixed-size mapping needs a full block; padding completes a short final chunk so every position in the mapping has a letter."},
+  {q:"What weakness do simple substitution and simple transposition ciphers share?",opts:["If the algorithm is discovered, the cipher is broken &mdash; they don&rsquo;t rely on a secret key","They require a computer to use","They can only encrypt one letter"],a:0,ex:"Used alone, knowing the method is enough to break them. Key-based ciphers fix this so secrecy depends on the key, not the algorithm."},
+]);
+INIT.transposition=()=>mountMCQ("transposition");
+
+/* ===== STAGE 6: vigenere ===== */
+LESSONS.vigenere=()=>mcqStage("vigenere",
+'<div class="eyebrow">Stage 6 &middot; classical ciphers</div><h2 class="lesson">Vigen&egrave;re cipher &mdash; a different shift for every letter</h2>'
++'<p class="lede">A key-based cipher that applies a changing shift, making simple analysis much harder.</p>'
++'<p class="body">The Vigen&egrave;re cipher is more complicated than Caesar because it applies a different shift to each letter, based on a pre-chosen keyword. For centuries it was considered unbreakable (though it&rsquo;s easily broken today).</p>'
++'<p class="body">It illustrates an important principle:</p>'
++'<div class="define"><h4>Kerckhoffs&rsquo;s principle</h4>'
++'<p>&ldquo;A cryptosystem should be secure even if everything about the system, except the key, is public knowledge.&rdquo; In other words, security should rest on the secrecy of the key, not the secrecy of the algorithm. Vigen&egrave;re was an early attempt to follow this idea by introducing a key.</p></div>'
++'<p class="body"><b>The one idea to hold onto:</b> Vigen&egrave;re is just Caesar, but the shift amount changes for every letter &mdash; and the keyword supplies those shift amounts. Each key letter&rsquo;s position-number <em>is</em> the shift for the plaintext letter beneath it. We use the same letter-numbering (a=0, b=1, &hellip; z=25).</p>'
++'<p class="body"><b>Encrypting, step by step.</b> Let&rsquo;s encrypt &ldquo;ILOVEGAMING&rdquo; with the key &ldquo;PICOCTF&rdquo;.</p>'
++'<p class="body">First, write the key under the message, repeating it until it&rsquo;s as long as the message:</p>'
++'<div class="mono-pre">Plaintext:  I L O V E G A M I N G\nKey:        P I C O C T F P I C O</div>'
++'<p class="body">Now go column by column. Add the plaintext letter&rsquo;s number to the key letter&rsquo;s number, then wrap with mod 26:</p>'
++'<table class="vig-table"><thead><tr><th>Plain</th><th>#</th><th>Key</th><th>#</th><th>add</th><th>wrap (mod 26)</th><th>Cipher</th></tr></thead><tbody>'
++'<tr><td>I</td><td>8</td><td>P</td><td>15</td><td>23</td><td>23</td><td class="hl">X</td></tr>'
++'<tr><td>L</td><td>11</td><td>I</td><td>8</td><td>19</td><td>19</td><td class="hl">T</td></tr>'
++'<tr><td>O</td><td>14</td><td>C</td><td>2</td><td>16</td><td>16</td><td class="hl">Q</td></tr>'
++'<tr><td>V</td><td>21</td><td>O</td><td>14</td><td>35</td><td class="wrap">35 &minus; 26 = 9</td><td class="hl">J</td></tr>'
++'<tr><td>E</td><td>4</td><td>C</td><td>2</td><td>6</td><td>6</td><td class="hl">G</td></tr>'
++'<tr><td>G</td><td>6</td><td>T</td><td>19</td><td>25</td><td>25</td><td class="hl">Z</td></tr>'
++'<tr><td>A</td><td>0</td><td>F</td><td>5</td><td>5</td><td>5</td><td class="hl">F</td></tr>'
++'<tr><td>M</td><td>12</td><td>P</td><td>15</td><td>27</td><td class="wrap">27 &minus; 26 = 1</td><td class="hl">B</td></tr>'
++'<tr><td>I</td><td>8</td><td>I</td><td>8</td><td>16</td><td>16</td><td class="hl">Q</td></tr>'
++'<tr><td>N</td><td>13</td><td>C</td><td>2</td><td>15</td><td>15</td><td class="hl">P</td></tr>'
++'<tr><td>G</td><td>6</td><td>O</td><td>14</td><td>20</td><td>20</td><td class="hl">U</td></tr>'
++'</tbody></table>'
++'<p class="body">Ciphertext: <strong style="font-family:var(--mono)">XTQJGZFBQPU</strong>. Notice the two I&rsquo;s encrypted differently (X and Q) because they had different key letters &mdash; that&rsquo;s why Vigen&egrave;re beats Caesar.</p>'
++'<p class="body"><b>Decrypting, step by step.</b> Write the repeated key under the ciphertext, but now <em>subtract</em> the key number (if below 0, add 26):</p>'
++'<div class="mono-pre">Ciphertext: X T Q J G Z F B Q P U\nKey:        P I C O C T F P I C O</div>'
++'<table class="vig-table"><thead><tr><th>Cipher</th><th>#</th><th>Key</th><th>#</th><th>subtract</th><th>wrap</th><th>Plain</th></tr></thead><tbody>'
++'<tr><td>X</td><td>23</td><td>P</td><td>15</td><td>8</td><td>8</td><td class="hl">I</td></tr>'
++'<tr><td>T</td><td>19</td><td>I</td><td>8</td><td>11</td><td>11</td><td class="hl">L</td></tr>'
++'<tr><td>Q</td><td>16</td><td>C</td><td>2</td><td>14</td><td>14</td><td class="hl">O</td></tr>'
++'<tr><td>J</td><td>9</td><td>O</td><td>14</td><td>&minus;5</td><td class="wrap">&minus;5 + 26 = 21</td><td class="hl">V</td></tr>'
++'<tr><td>G</td><td>6</td><td>C</td><td>2</td><td>4</td><td>4</td><td class="hl">E</td></tr>'
++'<tr><td>Z</td><td>25</td><td>T</td><td>19</td><td>6</td><td>6</td><td class="hl">G</td></tr>'
++'<tr><td>F</td><td>5</td><td>F</td><td>5</td><td>0</td><td>0</td><td class="hl">A</td></tr>'
++'<tr><td>B</td><td>1</td><td>P</td><td>15</td><td>&minus;14</td><td class="wrap">&minus;14 + 26 = 12</td><td class="hl">M</td></tr>'
++'<tr><td>Q</td><td>16</td><td>I</td><td>8</td><td>8</td><td>8</td><td class="hl">I</td></tr>'
++'<tr><td>P</td><td>15</td><td>C</td><td>2</td><td>13</td><td>13</td><td class="hl">N</td></tr>'
++'<tr><td>U</td><td>20</td><td>O</td><td>14</td><td>6</td><td>6</td><td class="hl">G</td></tr>'
++'</tbody></table>'
++'<p class="body">Result: <strong style="font-family:var(--mono)">ILOVEGAMING</strong> &mdash; back to the original.</p>'
++'<div class="define"><h4>The formula</h4>'
++'<p>Encrypt: <code class="inl">(plaintext number + key letter number) mod 26</code>. Decrypt: <code class="inl">(ciphertext number &minus; key letter number) mod 26</code>. When the key runs out, repeat it from the start.</p></div>'
++'<div class="define"><h4>Why it&rsquo;s stronger than Caesar</h4>'
++'<p>In Caesar, every letter uses the same shift, so &lsquo;e&rsquo; always becomes the same ciphertext letter. In Vigen&egrave;re, the shift changes with each key letter, so the same plaintext letter can encrypt to different ciphertext letters in different positions. That defeats the simplest letter-by-letter analysis &mdash; but not the more advanced methods in the next group.</p></div>',
+[
+  {q:"What is the core idea that makes Vigen&egrave;re stronger than Caesar?",opts:["It deletes the vowels","It applies a different shift to each letter, based on a repeating keyword","It uses numbers instead of letters"],a:1,ex:"Vigen&egrave;re varies the shift per position using the key, so a given plaintext letter doesn&rsquo;t always map to the same ciphertext letter."},
+  {q:"Kerckhoffs&rsquo;s principle says a cryptosystem should remain secure even if which part is public?",opts:["Nothing &mdash; everything must be secret","Only the plaintext","Everything except the key"],a:2,ex:"The principle holds that security should depend on the key alone, so the algorithm being known shouldn&rsquo;t break it."},
+  {q:"When the keyword is shorter than the message, what do you do?",opts:["Repeat the key until it matches the message length","Stop encrypting at the end of the key","Pad the message with zeros"],a:0,ex:"The key is repeated as many times as needed so each plaintext letter has a corresponding key letter."},
+]);
+INIT.vigenere=()=>mountMCQ("vigenere");
+
+/* ===== STAGE 7: hill ===== */
+LESSONS.hill=()=>mcqStage("hill",
+'<div class="eyebrow">Stage 7 &middot; classical ciphers</div><h2 class="lesson">Hill cipher &mdash; encryption with matrices</h2>'
++'<p class="lede">A cipher that encrypts blocks of letters by multiplying them with a matrix.</p>'
++'<p class="body">The Hill cipher uses matrices. (A matrix is a grid of numbers; multiplying a matrix by a column of numbers produces a new column &mdash; this is matrix multiplication, a standard math operation.) The Hill cipher applies that operation to whole blocks of letters at once, rather than one letter at a time.</p>'
++'<p class="body">You don&rsquo;t need to perform any matrix math by hand to recognize a Hill cipher. The key points for a CTF beginner: it operates on blocks (not single letters), the key is a square matrix of numbers, and the math is done mod 26.</p>'
++'<div class="define"><h4>Order matters in matrix multiplication</h4>'
++'<p>Unlike ordinary numbers, for matrices A&times;B is generally not equal to B&times;A. The order of multiplication changes the result. This is why the Hill cipher&rsquo;s encrypt and decrypt steps must apply the matrix in the correct order.</p></div>',
+[
+  {q:"What mathematical tool does the Hill cipher rely on?",opts:["Prime factorization","Matrices and matrix multiplication","Frequency counting"],a:1,ex:"The Hill cipher writes a block of letters as a number column and multiplies it by a key matrix, taking results mod 26."},
+  {q:"How does the Hill cipher process the message?",opts:["One letter at a time","Backwards","In blocks of several letters at once"],a:2,ex:"It encrypts blocks (the block size matches the matrix dimension), which is part of what makes it stronger than single-letter substitution."},
+  {q:"After multiplying a letter block by the key matrix, what final step does the Hill cipher apply to each resulting number?",opts:["Take it mod 26, then convert back to a letter","Divide it by the key length","Reverse the digits"],a:0,ex:"Each number in the resulting column is taken mod 26 (keeping it in the 0&ndash;25 letter range) and then converted back to a letter to form the ciphertext block."},
+]);
+INIT.hill=()=>mountMCQ("hill");
+
+/* ===== STAGE 8: breakcaesar ===== */
+LESSONS.breakcaesar=()=>mcqStage("breakcaesar",
+'<div class="eyebrow">Stage 8 &middot; breaking ciphers</div><h2 class="lesson">Breaking the Caesar cipher &mdash; brute force</h2>'
++'<p class="lede">With only 26 possible keys, you can simply try them all.</p>'
++'<p class="body">This group covers how classical ciphers are broken. These are recognition-level explanations: the goal is to understand <em>why</em> a cipher is weak and what method exposes it, not to run attacks on live targets.</p>'
++'<p class="body">The Caesar cipher is trivially breakable by brute force. There are only 25 useful shifts (1&ndash;25), so an attacker can apply every possible shift to the ciphertext and read which result makes sense. Only one shift will produce intelligible text.</p>'
++'<div class="define"><h4>Brute force (in this context)</h4>'
++'<p>Trying every possible key until the output is readable. It works when the number of keys is small &mdash; exactly the Caesar cipher&rsquo;s weakness, with only 26 possibilities.</p></div>'
++'<p class="body">A harder variant applies a <em>different</em> shift to each letter (like Vigen&egrave;re). Brute force no longer works well there, because the number of combinations explodes as the key gets longer. For that case, a different technique is needed &mdash; frequency analysis, in the next stage.</p>',
+[
+  {q:"Why is brute force effective against a Caesar cipher?",opts:["Because Caesar ciphers store the key in the message","Because there are only 26 possible shifts to try","Because the letters are deleted"],a:1,ex:"With so few keys, an attacker can try every shift and pick the one that yields readable text."},
+  {q:"When does brute force stop being practical?",opts:["When the message is short","When the message is in English","When the cipher uses a long, changing key so the number of combinations becomes huge"],a:2,ex:"A long per-letter key (as in Vigen&egrave;re) creates far too many combinations to try exhaustively, so another method is needed."},
+  {q:"What is the practical sign that you&rsquo;ve found the right Caesar shift?",opts:["The output becomes readable, intelligible text","The output gets shorter","The output is all capitals"],a:0,ex:"Only the correct shift produces meaningful words; the rest stay as gibberish."},
+]);
+INIT.breakcaesar=()=>mountMCQ("breakcaesar");
+
+/* ===== STAGE 9: frequency ===== */
+LESSONS.frequency=()=>mcqStage("frequency",
+'<div class="eyebrow">Stage 9 &middot; breaking ciphers</div><h2 class="lesson">Frequency analysis &mdash; letting the language betray the cipher</h2>'
++'<p class="lede">Common letters stay common even after substitution &mdash; and that leaks the key.</p>'
++'<p class="body">Frequency analysis breaks substitution ciphers by using the statistics of the language. In English, some letters appear far more often than others &mdash; &lsquo;e&rsquo; is the most common, and pairs like &ldquo;th&rdquo; are very frequent. Linguists have measured average letter frequencies from large amounts of known English text.</p>'
++'<p class="body">The key insight: in a fixed substitution cipher, those frequency relationships survive encryption. If the letter &lsquo;f&rsquo; is the most common letter in the ciphertext, it&rsquo;s very likely that &lsquo;e&rsquo; was encrypted as &lsquo;f&rsquo;. An attacker makes such guesses, substitutes them in, and checks whether real words emerge.</p>'
++'<div class="define"><h4>Frequency analysis</h4>'
++'<p>Counting how often each ciphertext symbol appears and matching the most frequent ones to the most frequent letters of the language. It works because a fixed substitution preserves how often each underlying letter occurs.</p></div>'
++'<p class="body">This technique is powerful because it&rsquo;s independent of time and place, as long as you have enough ciphertext and a good frequency reference. It works especially well on Affine ciphers and other fixed substitutions.</p>',
+[
+  {q:"What does frequency analysis exploit?",opts:["That ciphertext is always shorter than plaintext","That common letters in a language stay common after a fixed substitution","That keys are stored in the message"],a:1,ex:"A fixed substitution preserves how often each letter occurs, so the most frequent ciphertext symbol likely maps to the most frequent plaintext letter."},
+  {q:"In English ciphertext, which letter is the most common single letter to guess first?",opts:["z","q","e"],a:2,ex:"&lsquo;e&rsquo; is the most frequent letter in English, so the most common ciphertext symbol is a strong candidate for &lsquo;e&rsquo;."},
+  {q:"What does an attacker need for frequency analysis to work well?",opts:["Enough ciphertext and a frequency reference for the language","The sender&rsquo;s password","A quantum computer"],a:0,ex:"With a sufficient sample and known language statistics, the frequency pattern reveals likely letter mappings."},
+]);
+INIT.frequency=()=>mountMCQ("frequency");
+
+/* ===== STAGE 10: breakvigenere ===== */
+LESSONS.breakvigenere=()=>mcqStage("breakvigenere",
+'<div class="eyebrow">Stage 10 &middot; breaking ciphers</div><h2 class="lesson">Breaking Vigen&egrave;re &mdash; find the key length first</h2>'
++'<p class="lede">Once you know the key&rsquo;s length, Vigen&egrave;re collapses into several Caesar ciphers.</p>'
++'<p class="body">Vigen&egrave;re is harder to break than Caesar, but several techniques do it. The crucial step is figuring out the <b>length of the key</b>. Once you know that, the rest is easy &mdash; and here&rsquo;s why.</p>'
++'<p class="body">If you know the key is, say, 5 letters long, then every 5th letter of the message was encrypted with the same key letter &mdash; with the same fixed shift. So you can split the ciphertext into groups (letters 1, 6, 11, &hellip; in one group; letters 2, 7, 12, &hellip; in another; and so on). Each group was encrypted with a single fixed shift, which means <b>each group is just a Caesar cipher</b> &mdash; and you already know Caesar is easy to break with the methods from the previous stages. Crack each group and you recover the whole key.</p>'
++'<p class="body">So the entire difficulty of Vigen&egrave;re comes down to one question: how long is the key?</p>'
++'<div class="define"><h4>Finding the key length (you don&rsquo;t need to do this by hand)</h4>'
++'<p>There are two well-known methods for estimating a Vigen&egrave;re key&rsquo;s length: the <b>Kasiski test</b> and the <b>Friedman test</b>. You don&rsquo;t need to perform either as a beginner &mdash; automated tools handle them. The point to remember is just the idea: these methods work out the key length, and once the key length is known, the cipher falls apart into easy Caesar pieces.</p></div>',
+[
+  {q:"What is the key first step in breaking a Vigen&egrave;re cipher?",opts:["Guessing the plaintext language","Determining the length of the key","Reversing the ciphertext"],a:1,ex:"Knowing the key length lets you split the ciphertext into single-shift groups, each of which is a Caesar cipher you can break."},
+  {q:"What are the Kasiski and Friedman tests used for?",opts:["Encrypting the message faster","Storing passwords securely","Estimating the length of the Vigen&egrave;re key"],a:2,ex:"Both are methods for working out the key length. A beginner doesn&rsquo;t need to perform them &mdash; automated tools do &mdash; but knowing the key length is what makes the cipher breakable."},
+  {q:"After you know the key length, why does Vigen&egrave;re become easy?",opts:["The ciphertext splits into groups that are each a simple Caesar cipher","The key is printed in the message","The cipher deletes itself"],a:0,ex:"Each group of letters shares one fixed shift, so frequency analysis and brute force crack each group, revealing the full key."},
+]);
+INIT.breakvigenere=()=>mountMCQ("breakvigenere");
+
+/* ===== STAGE 11: symmetric ===== */
+LESSONS.symmetric=()=>mcqStage("symmetric",
+'<div class="eyebrow">Stage 11 &middot; modern crypto</div><h2 class="lesson">Symmetric cryptography &mdash; one shared key</h2>'
++'<p class="lede">Modern fast encryption where the same key both locks and unlocks the message.</p>'
++'<p class="body">Modern cryptography divides into two families: symmetric and asymmetric.</p>'
++'<div class="define"><h4>Symmetric vs asymmetric</h4>'
++'<p><b>Symmetric:</b> the same key is used to encrypt and to decrypt (like Vigen&egrave;re&rsquo;s single keyword). <b>Asymmetric:</b> two different keys &mdash; a public key to encrypt and a private key to decrypt. Asymmetric is covered in the next group.</p></div>'
++'<p class="body">The most common symmetric algorithm today is AES (Advanced Encryption Standard). AES combines substitutions and transpositions (the two ideas from the classical ciphers) using a key of fixed length. It comes in versions distinguished by key size; the most common are AES-128 and AES-256 (128-bit and 256-bit keys).</p>'
++'<div class="define"><h4>Is AES secure? (the takeaway)</h4>'
++'<p>AES itself is considered secure. What usually breaks a system is not AES, but mistakes in <em>how</em> it&rsquo;s used. That leads to a core lesson of cryptography: never write your own crypto &mdash; use established, well-tested libraries, because implementation and usage mistakes are where things go wrong.</p></div>'
++'<p class="body">AES processes data in fixed-size blocks. When a message doesn&rsquo;t fill a whole block, extra filler called &ldquo;padding&rdquo; is added to complete it. As a beginner you only need to know that padding exists to round the message up to a full block &mdash; you don&rsquo;t need to compute it.</p>',
+[
+  {q:"What defines symmetric cryptography?",opts:["There is no key at all","The same key is used for both encryption and decryption","The key is always public"],a:1,ex:"Symmetric crypto shares one secret key for both directions. Asymmetric crypto uses a separate public and private key."},
+  {q:"AES combines which two classical ideas?",opts:["Hashing and signing","Compression and padding","Substitution and transposition"],a:2,ex:"AES mixes substitutions and transpositions under a fixed-length key &mdash; the same primitive ideas seen in the classical ciphers."},
+  {q:"AES itself is considered secure. So where do real-world weaknesses usually come from?",opts:["Mistakes in how AES is used or implemented","The AES algorithm being fundamentally broken","Using a key that is too long"],a:0,ex:"AES as an algorithm is sound; problems arise from how it&rsquo;s applied. Hence the rule: use established crypto libraries rather than writing your own."},
+]);
+INIT.symmetric=()=>mountMCQ("symmetric");
+
+/* ===== STAGE 12: pubkey ===== */
+LESSONS.pubkey=()=>mcqStage("pubkey",
+'<div class="eyebrow">Stage 12 &middot; key exchange &amp; rsa</div><h2 class="lesson">Public-key cryptography &mdash; two keys instead of one</h2>'
++'<p class="lede">Solving the problem of agreeing on a secret with someone you&rsquo;ve never met.</p>'
++'<p class="body">All the ciphers so far share a problem: they need a predetermined key, and if anyone obtains it, the secret is lost. That&rsquo;s manageable if the two parties can meet in person, but not over the internet &mdash; you shouldn&rsquo;t have to meet someone physically every time you want to message them. Public-key cryptography solves this.</p>'
++'<p class="body"><b>The problem.</b> Alice wants to send Bob &ldquo;HELLO&rdquo; secretly. Carl can see everything. If they use a Caesar cipher, they need to agree on a shift number first &mdash; but how do they share that shift without Carl seeing it?</p>'
++'<p class="body">Here&rsquo;s the idea using Caesar-style shifts to keep it concrete (in reality the math is much stronger, but the logic is identical):</p>'
++'<div class="define"><h4>Step 1 &mdash; Bob creates his key pair</h4>'
++'<p>Bob picks two linked numbers &mdash; one to lock, one to unlock:</p>'
++'<p><b>Public key: shift forward by 3</b> &mdash; he tells the whole world, including Carl.</p>'
++'<p><b>Private key: shift back by 3</b> &mdash; he never shares this.</p></div>'
++'<div class="define"><h4>Why the two keys are different in real systems</h4>'
++'<p>In this example the two keys happen to be the same number (3), just applied in opposite directions. In a real public-key system like RSA, the two keys are <em>different</em> numbers that are mathematically linked &mdash; knowing the public key alone does not let you work out the private key. We use the same number here purely so the example closes cleanly; the real math is covered in the RSA stage.</p></div>'
++'<p class="body"><b>Step 2 &mdash; Alice encrypts with Bob&rsquo;s public key.</b></p>'
++'<div class="mono-pre">H(7)  + 3 = 10 &rarr; K\nE(4)  + 3 = 7  &rarr; H\nL(11) + 3 = 14 &rarr; O\nL(11) + 3 = 14 &rarr; O\nO(14) + 3 = 17 &rarr; R</div>'
++'<p class="body">She sends &ldquo;KHOOR&rdquo; to Bob. Carl sees &ldquo;KHOOR&rdquo; too &mdash; but without the private key, he can&rsquo;t undo it (in a real system).</p>'
++'<p class="body"><b>Step 3 &mdash; Only Bob can decrypt.</b></p>'
++'<div class="mono-pre">K(10) - 3 = 7  &rarr; H\nH(7)  - 3 = 4  &rarr; E\nO(14) - 3 = 11 &rarr; L\nO(14) - 3 = 11 &rarr; L\nR(17) - 3 = 14 &rarr; O</div>'
++'<p class="body">He gets back &ldquo;HELLO&rdquo;. Alice and Bob never needed to meet &mdash; Bob&rsquo;s public key was enough for Alice to lock the message, and only Bob&rsquo;s private key opens it.</p>'
++'<p class="body"><b>Authentication &mdash; proving the message came from Alice.</b> Alice also has her own key pair: public key shift forward by 7, private key shift back by 7. She signs &ldquo;HELLO&rdquo; with her private key:</p>'
++'<div class="mono-pre">H(7)  - 7 = 0          &rarr; A\nE(4)  - 7 = -3+26 = 23 &rarr; X\nL(11) - 7 = 4          &rarr; E\nL(11) - 7 = 4          &rarr; E\nO(14) - 7 = 7          &rarr; H</div>'
++'<p class="body">She sends &ldquo;AXEEH&rdquo;. Anyone can apply her public key (shift forward 7) and get back &ldquo;HELLO.&rdquo; That gives no secrecy &mdash; but it proves <b>only Alice could have produced &ldquo;AXEEH&rdquo;</b>, because only she knows her private key. That&rsquo;s authentication.</p>'
++'<div class="define"><h4>The two uses of a key pair</h4>'
++'<p><b>Encrypt with the recipient&rsquo;s public key</b> &rarr; only they can decrypt it (confidentiality). <b>Sign with your own private key</b> &rarr; anyone can verify it came from you (authentication).</p></div>'
++'<p class="body">One practical question remains: how do two people agree on those initial public keys over the internet safely? One well-known method is the <b>Diffie-Hellman key exchange</b>, which uses modular arithmetic to let two parties derive the same shared secret from public messages alone &mdash; without ever sending the secret itself. The details involve more advanced math that goes beyond this beginner book.</p>',
+[
+  {q:"What problem does public-key cryptography primarily solve?",opts:["Making messages shorter","Agreeing on a secret key with someone without meeting in person","Speeding up the internet"],a:1,ex:"Symmetric ciphers need a pre-shared key. Public-key crypto lets two parties communicate securely without first meeting to exchange a secret."},
+  {q:"To send a message only the recipient can read, which key do you encrypt with?",opts:["Your own private key","A shared password","The recipient&rsquo;s public key"],a:2,ex:"Encrypting with the recipient&rsquo;s public key means only their matching private key can decrypt it &mdash; ensuring confidentiality."},
+  {q:"Encrypting a message with your own private key provides which property?",opts:["Authentication &mdash; it proves the message came from you","Faster delivery","Compression"],a:0,ex:"Only you hold your private key, so if your public key decrypts the message, it must have come from you. That&rsquo;s authentication."},
+]);
+INIT.pubkey=()=>mountMCQ("pubkey");
+
+/* ===== STAGE 13: rsa (interactive) ===== */
+LESSONS.rsa=()=>{
+return '<div class="eyebrow">Stage 13 &middot; key exchange &amp; rsa</div><h2 class="lesson">RSA &mdash; public-key encryption with modular exponentiation</h2>'
++'<p class="lede">The most widely used public-key system, built from primes and modular arithmetic.</p>'
++'<p class="body">RSA is named after its inventors: Ronald Rivest, Adi Shamir, and Leonard Adleman. It&rsquo;s a widely used asymmetric algorithm &mdash; the same public/private key idea from the previous stage, but with a specific mathematical operation that makes it genuinely secure.</p>'
++'<p class="body"><b>The key pair used in this example.</b> We&rsquo;ll use deliberately tiny numbers so the arithmetic is visible. Real RSA uses enormous ones.</p>'
++'<ul style="color:var(--ink);margin:8px 0 8px 18px;line-height:1.8">'
++'<li><b>Public key: (e=3, n=55)</b> &mdash; shared openly with the world</li>'
++'<li><b>Private key: (d=27, n=55)</b> &mdash; kept secret</li></ul>'
++'<div class="define"><h4>The RSA keys and formulas</h4>'
++'<p><b>Public key:</b> (e, n). <b>Private key:</b> (d, n). A message is a number m; the ciphertext is a number c.</p>'
++'<p>Encrypt: <code class="inl">c = m^e mod n</code> &nbsp;&nbsp; Decrypt: <code class="inl">m = c^d mod n</code></p>'
++'<p>The same n appears in both keys; e is public and d is private.</p></div>'
++'<p class="body"><b>Encrypting &ldquo;HELLO.&rdquo;</b> Each letter becomes its position number (a=0 &hellip; z=25), then we apply <code class="inl">c = m&sup3; mod 55</code>:</p>'
++'<table class="vig-table"><thead><tr><th>Letter</th><th>m</th><th>m&sup3;</th><th>m&sup3; mod 55</th><th>Transmitted</th></tr></thead>'
++'<tbody>'
++'<tr><td>H</td><td>7</td><td>343</td><td>343 &minus; 6&times;55 = 13</td><td class="hl">13</td></tr>'
++'<tr><td>E</td><td>4</td><td>64</td><td>64 &minus; 1&times;55 = 9</td><td class="hl">9</td></tr>'
++'<tr><td>L</td><td>11</td><td>1331</td><td>1331 &minus; 24&times;55 = 11</td><td class="hl">11</td></tr>'
++'<tr><td>L</td><td>11</td><td>1331</td><td>1331 &minus; 24&times;55 = 11</td><td class="hl">11</td></tr>'
++'<tr><td>O</td><td>14</td><td>2744</td><td>2744 &minus; 49&times;55 = 49</td><td class="hl">49</td></tr>'
++'</tbody></table>'
++'<p class="body">What travels over the network: <strong style="font-family:var(--mono)">[13, 9, 11, 11, 49]</strong>. To Carl these are just numbers &mdash; without the private key d=27 he cannot reverse them.</p>'
++'<p class="body"><b>Decrypting.</b> Bob applies <code class="inl">c^27 mod 55</code> to each received number:</p>'
++'<table class="vig-table"><thead><tr><th>Received</th><th>c^27 mod 55</th><th>Recovered</th></tr></thead>'
++'<tbody><tr><td>13</td><td>7</td><td class="hl">H</td></tr><tr><td>9</td><td>4</td><td class="hl">E</td></tr><tr><td>11</td><td>11</td><td class="hl">L</td></tr><tr><td>11</td><td>11</td><td class="hl">L</td></tr><tr><td>49</td><td>14</td><td class="hl">O</td></tr></tbody></table>'
++'<p class="body">Result: <strong style="font-family:var(--mono)">HELLO</strong> &check;</p>'
++'<div class="define"><h4>Why RSA is secure (and the size requirement)</h4>'
++'<p>With a large n, working out the private key from the public key is computationally infeasible. Real RSA uses a key around 2048 bits (&sim;617 digits) &mdash; making it practically impossible to crack with today&rsquo;s computers.</p></div>'
++'<div class="rsa-widget"><h3>Try it &mdash; RSA calculator (e=3, n=55 / d=27, n=55)</h3>'
++'<div class="rsa-row"><label>Choose a letter to encrypt:</label>'
++'<select id="rsaLetterSel">'+Array.from({length:26},(_,i)=>'<option value="'+i+'">'+(String.fromCharCode(65+i))+' (m='+i+')</option>').join("")+'</select></div>'
++'<div id="rsaOutput" class="rsa-result"></div></div>'
++'<p class="body">Answer <b>3</b> questions to complete this stage.</p>'
++'<div id="mcq-rsa"></div>';
+};
+INIT.rsa=()=>{
+  function computeRSA(){
+    const m=parseInt(document.getElementById("rsaLetterSel").value)||0;
+    // encrypt: c = m^3 mod 55
+    const c=(m*m*m)%55;
+    // decrypt: c^27 mod 55 — use modpow
+    function modpow(base,exp,mod){let r=1;base=base%mod;while(exp>0){if(exp%2===1)r=(r*base)%mod;exp=Math.floor(exp/2);base=(base*base)%mod;}return r;}
+    const dec=modpow(c,27,55);
+    const letter=String.fromCharCode(65+m);
+    const recovered=String.fromCharCode(65+dec);
+    document.getElementById("rsaOutput").innerHTML=
+      '<span class="label">Plaintext letter: </span><span class="val">'+letter+' (m='+m+')</span><br>'
+      +'<span class="label">Encrypt (m&sup3; mod 55): </span><span class="val">c = '+m+'&sup3; mod 55 = '+m*m*m+' mod 55 = '+c+'</span><br>'
+      +'<span class="label">Transmitted number: </span><span class="val">'+c+'</span><br>'
+      +'<span class="label">Decrypt (c^27 mod 55): </span><span class="val">'+c+'^27 mod 55 = '+dec+'</span><br>'
+      +'<span class="label">Recovered letter: </span><span class="val">'+recovered+(dec===m?' &check; matches original':'')+'</span>';
+  }
+  document.getElementById("rsaLetterSel").addEventListener("change",computeRSA);
+  computeRSA();
+  if(!MCQ_STATE["rsa"]){
+    const saved=Array.isArray(MCQ_SAVED["rsa"])&&MCQ_SAVED["rsa"].length===3?MCQ_SAVED["rsa"].slice():new Array(3).fill(false);
+    MCQ_STATE["rsa"]={questions:RSA_QS,idx:0,solved:saved,answered:saved.slice()};
+  }else{MCQ_STATE["rsa"].questions=RSA_QS;}
+  mountMCQ("rsa");
+};
+const RSA_QS=[
+  {q:"In RSA, what is the public key used for?",opts:["Decrypting messages sent to you","Encrypting messages to send to the key&rsquo;s owner","Storing your password"],a:1,ex:"The public key encrypts. Only the matching private key can decrypt. Anyone can have your public key &mdash; that&rsquo;s the point."},
+  {q:"Why is the example key n=55 only safe for learning, not for real use?",opts:["55 is too large a number for computers to handle","n=55 is far too small &mdash; a real RSA key uses n around 2048 bits, making it computationally infeasible to crack","The example uses the wrong formula"],a:1,ex:"With a large enough n, working out the private key from the public key is computationally infeasible. n=55 is tiny by comparison and would be trivially broken."},
+  {q:"If Bob receives the number 9 (encrypted with public key e=3, n=55), which key does he use to recover the original letter?",opts:["His private key (d=27, n=55), applying the formula m = c^d mod n","The sender&rsquo;s public key","A shared password"],a:0,ex:"Decryption always uses the recipient&rsquo;s private key with the formula m = c^d mod n. Only Bob holds d=27, so only Bob can decrypt."},
+];
+
+/* ===== STAGE 14: rsaattacks ===== */
+LESSONS.rsaattacks=()=>mcqStage("rsaattacks",
+'<div class="eyebrow">Stage 14 &middot; key exchange &amp; rsa</div><h2 class="lesson">Attacking RSA &mdash; where implementations go wrong</h2>'
++'<p class="lede">RSA&rsquo;s math is strong; the weaknesses come from poor choices in how it&rsquo;s set up.</p>'
++'<p class="body">RSA itself is hard to break. In practice, attacks target <em>mistakes</em> a programmer makes when implementing it. This stage is recognition-level: understand the weaknesses so you can spot them, not execute attacks.</p>'
++'<div class="define"><h4>Weak (small) n</h4>'
++'<p>RSA&rsquo;s security depends on <code class="inl">n</code> being hard to crack. If <code class="inl">n</code> is too small, an attacker can work out the private key from the public key &mdash; which is exactly what RSA is designed to prevent. The defense is simply using a large enough n (around 2048 bits in practice).</p></div>'
++'<div class="define"><h4>n too large is also bad</h4>'
++'<p>If n is enormous beyond what&rsquo;s needed, the algorithm becomes too slow/inefficient. There&rsquo;s a sensible range &mdash; around 2000&ndash;4000 bits &mdash; balancing security and performance.</p></div>'
++'<div class="define"><h4>Wiener&rsquo;s attack (small d)</h4>'
++'<p>Michael J. Wiener showed that if the private value <code class="inl">d</code> is too small, an attacker can efficiently recover it, which breaks the private key. However, if <code class="inl">e</code> is large enough, the attack can no longer efficiently recover <code class="inl">d</code> &mdash; even if <code class="inl">d</code> is small &mdash; so the private key remains safe.</p></div>',
+[
+  {q:"Where do real-world RSA attacks usually focus?",opts:["The color of the certificate","Mistakes in how RSA is implemented or configured, not the core math","The length of the message"],a:1,ex:"RSA&rsquo;s math is strong; attacks exploit poor parameter choices like a too-small n or d."},
+  {q:"Why is a too-small n dangerous?",opts:["A small n makes the message unreadable","A small n uses more memory","A small n allows an attacker to work out the private key from the public key"],a:2,ex:"RSA&rsquo;s security depends on n being computationally hard to crack. A small n removes that protection, allowing the private key to be derived from the public key."},
+  {q:"What does Wiener&rsquo;s attack target?",opts:["A private exponent d that is too small","A message that is too long","A weak password"],a:0,ex:"Wiener showed a too-small d can be recovered efficiently. A sufficiently large e means the attack can no longer efficiently recover d, keeping the private key safe."},
+]);
+INIT.rsaattacks=()=>mountMCQ("rsaattacks");
+
+/* ===== STAGE 15: hashing ===== */
+LESSONS.hashing=()=>mcqStage("hashing",
+'<div class="eyebrow">Stage 15 &middot; hashing</div><h2 class="lesson">Hashing &mdash; a fingerprint for data</h2>'
++'<p class="lede">Feed in any input and get a short fixed code back &mdash; but you can never go backwards.</p>'
++'<p class="body">Think of a hash function as a fingerprint machine. You feed in anything &mdash; a word, a file, an entire book &mdash; and it always spits out a short fixed-length code called the <b>hash</b> (or <b>digest</b>). That code is the fingerprint of the input.</p>'
++'<p class="body">Two behaviours make hashing useful:</p>'
++'<ul style="color:var(--ink);margin:8px 0 8px 18px;line-height:1.8">'
++'<li><b>Same input, same fingerprint, every time.</b> Feed in &ldquo;hello&rdquo; twice and you get the same hash both times.</li>'
++'<li><b>Change anything, get a completely different fingerprint.</b> Change just one letter and the hash looks nothing like the original.</li></ul>'
++'<div class="define"><h4>The one-way property</h4>'
++'<p>The fingerprint machine only works in one direction. You can always go from input &rarr; fingerprint, but you cannot go backwards from fingerprint &rarr; input. This is what makes hashing different from encryption: there is no key, and there is no way to reverse it. If someone only has the hash, they cannot recover the original message.</p></div>'
++'<div class="define"><h4>Each input has its own unique fingerprint</h4>'
++'<p>A good hash function ensures no two different inputs produce the same hash. If you find two different inputs with the same hash, the hash function is considered broken &mdash; because it means the fingerprints are no longer reliable as unique identifiers.</p></div>'
++'<p class="body"><b>Two practical uses:</b></p>'
++'<div class="define"><h4>Checking a file wasn&rsquo;t tampered with</h4>'
++'<p>Download a file and compute its hash, then compare it to the hash published by the sender. If they match, nothing changed. If they differ &mdash; even by a single byte &mdash; the hashes won&rsquo;t match, and you know something was altered. This is how software download sites let you verify you got the real file.</p></div>'
++'<div class="define"><h4>Storing passwords safely</h4>'
++'<p>Websites don&rsquo;t store your actual password &mdash; they store its hash. When you log in, the site hashes what you typed and compares it to the stored hash. Because hashing is one-way, even an attacker who steals the database can&rsquo;t read your passwords directly &mdash; they only see the fingerprints.</p></div>'
++'<div class="define"><h4>Common hash functions you&rsquo;ll see in CTFs</h4>'
++'<p><b>SHA-256</b> and <b>MD5</b> are two widely used hash functions. SHA-256 is the stronger, more modern one. MD5 is older and considered weak for security purposes today, but you&rsquo;ll still see it in challenges. You don&rsquo;t need to know how they work internally &mdash; just recognise their names.</p></div>',
+[
+  {q:"What does a hash function always produce from the same input?",opts:["The same fixed-length fingerprint every time","A different code each time, for security","An encrypted version that can be decrypted with a key"],a:0,ex:"A hash is deterministic &mdash; the same input always gives the same fingerprint. It&rsquo;s not encryption; there&rsquo;s no key and it can&rsquo;t be reversed."},
+  {q:"Why is hashing described as &ldquo;one-way&rdquo;?",opts:["It can only be used once per message","You can go from input to fingerprint, but not from fingerprint back to the original input","It only works on text, not files"],a:1,ex:"The fingerprint machine only runs forwards. Given a hash, there is no way to recover the original input &mdash; which is what makes it useful for storing passwords."},
+  {q:"Why do websites store a hash of your password rather than the password itself?",opts:["To make logging in faster","Hashes are shorter and save storage space","So that even someone who steals the database cannot directly read your password"],a:2,ex:"Because hashing is one-way, a stolen database of hashes doesn&rsquo;t reveal the original passwords. The site verifies your login by hashing what you type and comparing it to the stored hash."},
+  {q:"You download a file and compute its hash. It doesn&rsquo;t match the hash the sender published. What does that tell you?",opts:["The file was altered or corrupted &mdash; the contents don&rsquo;t match what the sender published","You need a newer version of the hash tool","The file is too large"],a:0,ex:"Any change to a file &mdash; even a single byte &mdash; produces a completely different hash. A mismatch means the file is not identical to the original."},
+]);
+INIT.hashing=()=>mountMCQ("hashing");
+
+/* ===== STAGE 16: passwordcracking ===== */
+LESSONS.passwordcracking=()=>mcqStage("passwordcracking",
+'<div class="eyebrow">Stage 16 &middot; hashing</div><h2 class="lesson">Attacking password hashes &mdash; brute force and dictionaries</h2>'
++'<p class="lede">You can&rsquo;t reverse a hash &mdash; so attackers hash guesses and compare.</p>'
++'<p class="body">Recognition-level stage: understand how leaked password hashes are attacked and how to defend, without performing attacks.</p>'
++'<p class="body">Because hashes can&rsquo;t be reversed, an attacker doesn&rsquo;t &ldquo;un-hash&rdquo; a password. Instead they hash candidate passwords and compare each result against the leaked hash. A match reveals the password.</p>'
++'<div class="define"><h4>Brute force attack</h4>'
++'<p>Try every possible password of a given length, hash each one, and compare to the target hashes. For example, to find all 6-character lowercase passwords, hash everything from &ldquo;aaaaaa&rdquo; to &ldquo;zzzzzz.&rdquo; Adding uppercase, digits, and symbols makes it more thorough but much slower. Brute force becomes impractical for passwords of length ~9 and above &mdash; the search space is too large.</p></div>'
++'<div class="define"><h4>Dictionary attack</h4>'
++'<p>Instead of all combinations, try a list of likely passwords: common passwords (like &ldquo;password&rdquo; and its variants), words from real leaked password lists, and dictionary words. This is far smaller than the full brute-force space and exploits the fact that people choose predictable passwords.</p></div>'
++'<div class="define"><h4>Rules (mutations)</h4>'
++'<p>Attackers apply transformation &ldquo;rules&rdquo; to dictionary entries to catch common substitutions &mdash; e.g. swapping E&rarr;3 or i&rarr;1, appending numbers. With public rule sets and password lists, dictionary attacks can recover a large fraction of weak passwords.</p></div>'
++'<div class="define"><h4>The defense</h4>'
++'<p>A strong password defeats these attacks: long, and made of random characters so it isn&rsquo;t in any dictionary or common-password list and is too long to brute-force.</p></div>',
+[
+  {q:"Since a hash can&rsquo;t be reversed, how do attackers crack password hashes?",opts:["They run the hash function backwards","They email the user","They hash many candidate passwords and compare to the leaked hash"],a:2,ex:"Hashing is one-way, so attackers hash guesses and look for a matching hash &mdash; exactly the method a strong password defeats."},
+  {q:"What advantage does a dictionary attack have over pure brute force?",opts:["It tries likely/common passwords, a far smaller space than every combination","It reverses the hash directly","It needs no password list"],a:0,ex:"Dictionary attacks exploit predictable human choices, checking common and leaked passwords instead of every possible string."},
+  {q:"What is the best defense against brute-force and dictionary attacks?",opts:["Changing the username often","A long password of random characters, not based on dictionary words","Using a shorter password"],a:1,ex:"Random, long passwords aren&rsquo;t in dictionaries and are too large to brute-force, defeating both attack types."},
+]);
+INIT.passwordcracking=()=>mountMCQ("passwordcracking");
+
+/* ===== STAGE 17: cryptohints (reference) ===== */
+LESSONS.cryptohints=()=>
+'<div class="eyebrow">hints</div><h2 class="lesson">Hints for cryptography CTF challenges</h2>'
++'<p class="lede">Tools and tips for solving the beginner cryptography puzzles on CyLab Security Academy. Reference page &mdash; nothing to complete.</p>'
++'<div class="define"><h4>Ready to try some challenges?</h4>'
++'<p>Now that you&rsquo;ve worked through this book, you&rsquo;re ready to put the skills to use on real puzzles. Head to the CyLab Security Academy challenge library:</p>'
++'<p style="text-align:center"><a href="https://learn.cylabacademy.org/library?page=1" target="_blank" rel="noopener" style="color:var(--accent-d);font-weight:700">https://learn.cylabacademy.org/library?page=1</a></p>'
++'<p>Filter by <b>Category &rarr; Cryptography</b> and <b>Difficulty &rarr; Easy</b>. The five puzzles below will appear. Work through them in order &mdash; they go from simplest to most involved.</p></div>'
++'<div class="define"><h4>Using the workspace</h4>'
++'<p>When you open a puzzle, look for the <b>&ldquo;Open in Workspace&rdquo;</b> button. Clicking it splits the screen into three panels: the <b>left</b> panel shows the challenge list with your applied filters so you can switch between puzzles; the <b>middle</b> panel shows the puzzle description and flag submission box; and the <b>right</b> panel is a live webshell &mdash; a real Linux terminal running in your browser, with no installation needed.</p></div>'
++'<div class="card"><h3>Mod 26</h3>'
++'<p class="body" style="margin-top:0"><b>What it&rsquo;s testing:</b> ROT13 &mdash; a Caesar cipher with a fixed shift of 13.</p>'
++'<p class="body"><b>The hint:</b> The puzzle title says it all. The alphabet has 26 letters, and 13 is exactly half. Shifting every letter forward by 13 scrambles it &mdash; and shifting it forward by 13 again brings it straight back. The same operation both encodes and decodes. Open CyberChef (<a href="https://gchq.github.io/CyberChef/" target="_blank" rel="noopener" style="color:var(--accent-d)">https://gchq.github.io/CyberChef/</a>), use the <b>ROT13</b> operation.</p></div>'
++'<div class="card"><h3>13</h3>'
++'<p class="body" style="margin-top:0"><b>What it&rsquo;s testing:</b> ROT13, same as Mod 26.</p>'
++'<p class="body"><b>The hint:</b> The puzzle is named &ldquo;13&rdquo; &mdash; the shift number used in ROT13. Same method as Mod 26.</p></div>'
++'<div class="card"><h3>The Numbers</h3>'
++'<p class="body" style="margin-top:0"><b>What it&rsquo;s testing:</b> A simple number-to-letter substitution where each number is a letter&rsquo;s position in the alphabet.</p>'
++'<p class="body"><b>The hint:</b> The puzzle gives you a string of numbers. Each number is a letter&rsquo;s position &mdash; a=1, b=2, and so on. Use the table below to convert them in order and you&rsquo;ll read the flag.</p>'
++'<table class="lookup-table" style="margin:10px 0"><thead><tr><th>#</th><th>Letter</th><th>#</th><th>Letter</th><th>#</th><th>Letter</th><th>#</th><th>Letter</th><th>#</th><th>Letter</th></tr></thead>'
++'<tbody>'
++'<tr><td>1</td><td>a</td><td>2</td><td>b</td><td>3</td><td>c</td><td>4</td><td>d</td><td>5</td><td>e</td></tr>'
++'<tr><td>6</td><td>f</td><td>7</td><td>g</td><td>8</td><td>h</td><td>9</td><td>i</td><td>10</td><td>j</td></tr>'
++'<tr><td>11</td><td>k</td><td>12</td><td>l</td><td>13</td><td>m</td><td>14</td><td>n</td><td>15</td><td>o</td></tr>'
++'<tr><td>16</td><td>p</td><td>17</td><td>q</td><td>18</td><td>r</td><td>19</td><td>s</td><td>20</td><td>t</td></tr>'
++'<tr><td>21</td><td>u</td><td>22</td><td>v</td><td>23</td><td>w</td><td>24</td><td>x</td><td>25</td><td>y</td></tr>'
++'<tr><td>26</td><td>z</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>'
++'</tbody></table></div>'
++'<div class="card"><h3>interencdec</h3>'
++'<p class="body" style="margin-top:0"><b>What it&rsquo;s testing:</b> Recognising Base64 encoding, decoding it twice, then breaking a Caesar cipher.</p>'
++'<p class="body"><b>The hint:</b> The file you download contains a Base64 string &mdash; you can tell because it ends with <code class="inl">=</code> padding. Decode it and you&rsquo;ll get another Base64 string wrapped in Python byte notation (<code class="inl">b&rsquo;&hellip;&rsquo;</code>). Strip the <code class="inl">b&rsquo;</code> and <code class="inl">&rsquo;</code> from either end and decode it again. What you get looks almost like a flag &mdash; the right format (<code class="inl">xxxCTF{&hellip;}</code>) but with wrong letters. That&rsquo;s a Caesar cipher, like the ROT13 you used in the puzzles above &mdash; but this time the shift isn&rsquo;t fixed at 13. You&rsquo;ll need to try all 26 possible shifts to find the right one. In CyberChef, look for an operation that has <b>&ldquo;Brute Force&rdquo;</b> in its name alongside ROT13 &mdash; it tries all shifts at once and shows you all 26 outputs, so you can spot the one that reads as a real flag.</p></div>'
++'<div class="card"><h3>hashcrack</h3>'
++'<p class="body" style="margin-top:0"><b>What it&rsquo;s testing:</b> Recognising hash types and looking up weak password hashes using an online tool.</p>'
++'<p class="body"><b>The hint:</b> Connect to the server using the <code class="inl">nc</code> command shown in the puzzle. The server gives you a hash and asks for the password it represents. You can&rsquo;t reverse a hash &mdash; but you can look it up. Paste the hash into CrackStation (<a href="https://crackstation.net/" target="_blank" rel="noopener" style="color:var(--accent-d)">https://crackstation.net/</a>), a free online tool that checks hashes against a huge database of known passwords. The server gives you three hashes one after another. Crack each one to unlock the next.</p>'
++'<p class="body"><b>Recognising the hash type:</b> you don&rsquo;t need to identify the type manually &mdash; CrackStation does it for you. But as a reference: MD5 hashes are 32 characters long, SHA-1 are 40, SHA-256 are 64.</p></div>'
++'<div class="footnote">This page is a reference &mdash; it doesn&rsquo;t award XP or need completing. External tools (CyberChef, CrackStation, CyLab Security Academy) are third-party resources, not affiliated with this trainer.</div>';
+INIT.cryptohints=()=>{};
+
+/* ===== STAGE 18: cheatsheet (reference) ===== */
+LESSONS.cheatsheet=()=>
+'<div class="eyebrow">reference</div><h2 class="lesson">Cryptography quick reference</h2>'
++'<p class="lede">A compact summary of the ciphers, formulas, and terms in this book. Reference page &mdash; nothing to complete.</p>'
++'<div class="card"><h3>Classical ciphers</h3>'
++'<div class="cmd-row"><code>Caesar</code><span>shift each letter by a fixed key; encrypt <code class="inl">(x+k) mod 26</code>, decrypt <code class="inl">(x&minus;k) mod 26</code></span></div>'
++'<div class="cmd-row"><code>Affine</code><span><code class="inl">(a&times;x + b) mod m</code>; Caesar is the case a=1</span></div>'
++'<div class="cmd-row"><code>Transposition</code><span>reorder letters, don&rsquo;t replace them</span></div>'
++'<div class="cmd-row"><code>Vigen&egrave;re</code><span>shift varies per letter using a repeating keyword; encrypt adds, decrypt subtracts</span></div>'
++'<div class="cmd-row"><code>Hill</code><span>multiply letter-blocks by a key matrix, mod 26; decrypt with the inverse matrix</span></div></div>'
++'<div class="card"><h3>Modular arithmetic</h3>'
++'<div class="cmd-row"><code>a mod n</code><span>remainder of a&divide;n; result is 0&hellip;n&minus;1</span></div>'
++'<div class="cmd-row"><code>alphabet</code><span>letter math wraps mod 26; clocks are mod 12</span></div></div>'
++'<div class="card"><h3>Modern / key-based</h3>'
++'<div class="cmd-row"><code>Symmetric</code><span>one shared key (e.g. AES-128, AES-256). AES is secure; weaknesses come from how it&rsquo;s used</span></div>'
++'<div class="cmd-row"><code>Asymmetric</code><span>public key encrypts, private key decrypts</span></div></div>'
++'<div class="card"><h3>RSA</h3>'
++'<div class="cmd-row"><code>keys</code><span>public (e,n), private (d,n); encrypt <code class="inl">c = m^e mod n</code>, decrypt <code class="inl">m = c^d mod n</code></span></div>'
++'<div class="cmd-row"><code>security</code><span>with a large enough n, working out the private key from the public key is computationally infeasible</span></div>'
++'<div class="cmd-row"><code>weaknesses</code><span>n too small (private key derivable), d too small (Wiener&rsquo;s attack)</span></div>'
++'<div class="cmd-row"><code>Diffie-Hellman</code><span>a method for two parties to derive the same shared secret over a public channel; details beyond beginner level</span></div></div>'
++'<div class="card"><h3>Hashing</h3>'
++'<div class="cmd-row"><code>fingerprint</code><span>one-way fixed-length code of any input; same input always gives same fingerprint</span></div>'
++'<div class="cmd-row"><code>one-way</code><span>cannot be reversed &mdash; you can&rsquo;t recover the original input from the hash</span></div>'
++'<div class="cmd-row"><code>unique</code><span>each input has its own fingerprint; any change produces a completely different hash</span></div>'
++'<div class="cmd-row"><code>SHA-256 / MD5</code><span>two common hash functions you&rsquo;ll see in CTFs</span></div>'
++'<div class="cmd-row"><code>uses</code><span>integrity checking, password storage</span></div>'
++'<div class="cmd-row"><code>attacks</code><span>brute force, dictionary + rules. Defense: long random passwords</span></div></div>'
++'<div class="card"><h3>Terms</h3>'
++'<div class="cmd-row"><code>plaintext/cleartext</code><span>readable message</span></div>'
++'<div class="cmd-row"><code>ciphertext</code><span>encrypted message</span></div>'
++'<div class="cmd-row"><code>key</code><span>secret controlling encryption</span></div>'
++'<div class="cmd-row"><code>cipher</code><span>the encryption method</span></div>'
++'<div class="cmd-row"><code>confidentiality / integrity / authentication / nonrepudiation</code><span>the four goals of cryptography</span></div>'
++'<div class="cmd-row"><code>Kerckhoffs&rsquo;s principle</code><span>security should depend on the key, not the secrecy of the algorithm</span></div></div>'
++'<div class="footnote">This page is a reference &mdash; it doesn&rsquo;t award XP or need completing.</div>';
+INIT.cheatsheet=()=>{};
+
+function resetAll(){clearSaved();boot();toast("path restarted",true);}
+boot();
+</script>
+</body>
+</html>
