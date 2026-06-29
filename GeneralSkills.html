@@ -745,7 +745,7 @@ INIT.terminal=()=>{
   }
   function buildFinalSummary(){
     const refs={
-      "Navigation":[["pwd","show the folder you\u2019re in"],["ls","list files here (-a hidden, -l detailed)"],["cd NAME / cd ..","move into a folder / up one level"]],
+      "Navigation":[["pwd","show the folder you\u2019re in"],["ls","list files here (-a hidden, -l detailed)"],["cd NAME / cd ..","move into a folder / up one level"],["find . -name \"FILE\"","search for a file by name across all folders"]],
       "Viewing files":[["cat FILE","print the whole file"],["head FILE","first lines only"],["tail FILE","last lines only"],["wc -l FILE","count the lines"]],
       "Creating & modifying":[["mkdir NAME","make a folder"],["touch FILE","make an empty file"],["echo TEXT &gt; FILE","write text into a file"],["cp A B","copy a file"],["mv A B","move or rename a file"]],
       "System & network":[["man CMD","open a command\u2019s manual"],["ping HOST","test if a computer is reachable"]],
@@ -941,58 +941,126 @@ INIT.endian=()=>endianStage(3);
 /* ===================== HINTS (reference page \u2014 not graded) ===================== */
 LESSONS.hints=()=>
 '<div class="eyebrow">hints</div><h2 class="lesson">Hints for working through beginner CTF challenges</h2>'
-+'<p class="lede">A growing collection of tips and tools for solving early Capture-the-Flag puzzles. This is a reference page \u2014 nothing to complete, just read what you need.</p>'
++'<p class="lede">Tools and tips for solving the puzzles on the CyLab Security Academy learning path. Reference page \u2014 nothing to complete.</p>'
+
 +'<div class="define"><h4>Ready to try some challenges?</h4>'
-+'<p>Once you\u2019ve worked through this trainer and these hints, you can put the skills to use on an external beginner CTF learning path here:</p>'
++'<p>Now that you\u2019ve worked through this book, put the skills to use on real puzzles. Head to the CyLab Security Academy learning path:</p>'
 +'<p style="text-align:center"><a href="https://learn.cylabacademy.org/learning-paths/14" target="_blank" rel="noopener" style="color:var(--accent-d);font-weight:700">https://learn.cylabacademy.org/learning-paths/14</a></p>'
-+'<p>It\u2019s a third-party site, linked here for convenience and not affiliated with this trainer.</p></div>'
++'<p>Work through the challenges in the order shown below \u2014 they go from simplest to most involved. It\u2019s a third-party site, linked here for convenience and not affiliated with this trainer.</p></div>'
+
 +'<div class="define"><h4>Running a shell in your browser (no setup needed)</h4>'
-+'<p>Many beginner challenges expect you to type commands at a Linux shell, but you may not have one handy. picoCTF provides a free one that runs in your browser \u2014 no installation:</p>'
++'<p>Many beginner challenges expect you to type commands at a Linux shell. picoCTF provides a free one that runs in your browser \u2014 no installation needed:</p>'
 +'<p style="text-align:center"><a href="https://webshell.picoctf.org/" target="_blank" rel="noopener" style="color:var(--accent-d);font-weight:700">https://webshell.picoctf.org/</a></p>'
-+'<p>Open that link to get a working shell where you can practise the commands from the earlier stages (<code class="inl">ls</code>, <code class="inl">cat</code>, <code class="inl">cd</code>, and so on) and tackle puzzles that need a real terminal.</p></div>'
-+'<div class="card"><h3>Inspecting a web page (view the code behind it)</h3>'
-+'<p class="body" style="margin-top:0">Every web page is built from code your browser downloads \u2014 mainly <b>HTML</b> (the structure and text), <b>CSS</b> (the styling), and <b>JavaScript</b> (the behaviour). The browser turns that code into the nice visual page, but you can look at the raw code underneath. Clues are sometimes hidden there \u2014 in comments or values that never appear on the visible page. Two common ways to look:</p>'
-+'<div class="cmd-row"><code>View Source</code><span>shows the raw HTML the page was built from. Right-click the page \u2192 "View Page Source", or press <code class="inl">Ctrl+U</code>. Good for quickly scanning the whole HTML, including comments (<code class="inl">&lt;!-- like this --&gt;</code>) where clues often hide.</span></div>'
-+'<div class="cmd-row"><code>Developer Tools</code><span>a richer panel: right-click \u2192 "Inspect", or press <code class="inl">F12</code> (or <code class="inl">Ctrl+Shift+I</code>). It has tabs \u2014 <b>Elements</b> shows the live HTML and CSS, <b>Sources</b> (or <b>Debugger</b>) lists the CSS and JavaScript files the page loaded, and there are <b>Console</b> and <b>Network</b> tabs too.</span></div>'
-+'<p class="body">A page\u2019s code can be spread across several files \u2014 the HTML itself, one or more <code class="inl">.css</code> style files, and one or more <code class="inl">.js</code> script files. If you\u2019re hunting for something hidden, it\u2019s worth checking each of them, not just the main HTML.</p></div>'
-+'<div class="card"><h3>Reading a site\u2019s robots.txt</h3>'
-+'<p class="body" style="margin-top:0"><code class="inl">robots.txt</code> is an optional standard file many websites place at their root \u2014 you read it by adding <code class="inl">/robots.txt</code> to the site\u2019s address (e.g. <code class="inl">https://example.com/robots.txt</code>). Its job is to ask automated web crawlers (like search-engine bots) not to visit certain paths, using lines such as <code class="inl">Disallow: /some-folder/</code>. Not every site has one; if it doesn\u2019t exist you\u2019ll just get a "not found".</p>'
-+'<p class="body">Here\u2019s the security insight: <code class="inl">robots.txt</code> only <i>politely requests</i> that crawlers stay away \u2014 it blocks nothing, and anyone can read it. So when an owner lists a path they want kept out of search results, they\u2019ve effectively <i>advertised</i> that path to any human who looks. That makes <code class="inl">robots.txt</code> one of the first things worth checking when exploring a site: it can point to locations the owner didn\u2019t intend to highlight. (It\u2019s not a security control, and nothing to do with physical robots \u2014 just crawler bots.)</p></div>'
-+'<div class="card"><h3>Hashes and MD5</h3>'
-+'<p class="body" style="margin-top:0">A <i>hash function</i> takes any input and produces a fixed-size "fingerprint" of it. <code class="inl">hashlib.md5()</code> in a Python script means the challenge is using <b>MD5</b>, a hash that always produces 16 bytes \u2014 which is why an MD5 result shows as <b>16 pairs of hex digits</b>. For example <code class="inl">5f 4d cc 3b 5a a7 65 d6 1d 83 27 de b8 82 cf 99</code> is one MD5 hash: count the pairs and you get 16, every time. (Written without spaces it\u2019s just the 32 characters run together, like <code class="inl">5f4dcc3b5aa765d61d8327deb882cf99</code>.)</p>'
-+'<p class="body">Two properties make hashes useful in challenges:</p>'
-+'<div class="cmd-row"><code>one-way</code><span>you can\u2019t reverse a fingerprint back into the original input \u2014 so you can\u2019t simply "decode" a hash</span></div>'
-+'<div class="cmd-row"><code>deterministic</code><span>the same input <i>always</i> produces the exact same fingerprint</span></div>'
-+'<p class="body">That second property is the key. If a puzzle gives you a target hash and a list of possible inputs, you don\u2019t try to reverse the hash \u2014 instead you <b>hash each candidate the same way and compare</b> to the target. The candidate whose fingerprint matches is the answer. (This mirrors real password cracking: attackers don\u2019t un-hash a password, they hash guesses until one matches.)</p>'
-+'<p class="body">You can compute a hash with the script itself, in a Python session, or with CyberChef\u2019s <code class="inl">MD5</code> operation (search for it, drag it into the recipe, paste your input, and read the hex result).</p></div>'
++'<p>Open that link to get a working shell where you can practise the commands from the earlier stages and tackle puzzles that need a real terminal.</p></div>'
+
++'<div class="define"><h4>Heads-up: copy/paste keys differ in a browser shell</h4>'
++'<p>A <b>browser-based shell</b> (like the picoCTF webshell above) can behave differently from a normal terminal, because the browser grabs some keys first. The big one to know:</p>'
++'<p>In a <b>normal terminal</b>, <code class="inl">Ctrl + C</code> <i>interrupts</i> \u2014 it stops (and can kill) whatever is running; it does <b>not</b> copy. To copy there you use <code class="inl">Ctrl + Shift + C</code>.</p>'
++'<p>In a <b>browser shell</b>, you may find the opposite: <code class="inl">Ctrl + C</code> <i>copies</i> selected text, while <code class="inl">Ctrl + Shift + C</code> does nothing. (<code class="inl">Ctrl + Shift + V</code> to paste usually works in both.)</p>'
++'<p>So if you\u2019re on a real machine and a program suddenly dies when you meant to copy, that\u2019s <code class="inl">Ctrl + C</code> doing its real job. When in doubt, select text with the mouse and use the right-click menu \u2014 that works almost everywhere.</p></div>'
+
 +'<div class="card"><h3>CyberChef \u2014 the "Cyber Swiss Army Knife"</h3>'
-+'<p class="body" style="margin-top:0"><b>What it is:</b> a free web app that transforms data \u2014 decoding, encoding, converting between formats, and much more \u2014 all in your browser. It\u2019s built and maintained by GCHQ (the UK\u2019s cyber and intelligence agency) and is a staple tool for CTF players because it handles most common encodings without any coding. The only official version is here:</p>'
++'<p class="body" style="margin-top:0"><b>What it is:</b> a free web app that transforms data \u2014 decoding, encoding, converting between formats, and much more \u2014 all in your browser. Built and maintained by GCHQ (the UK\u2019s cyber and intelligence agency). The only official version is here:</p>'
 +'<p style="text-align:center"><a href="https://gchq.github.io/CyberChef/" target="_blank" rel="noopener" style="color:var(--accent-d);font-weight:700">https://gchq.github.io/CyberChef/</a></p>'
-+'<p class="body"><b>How it works \u2014 the "recipe" idea:</b> the left panel lists hundreds of operations (grouped into Encoding, Encryption, Hashing, and so on). You search for an operation and drag it into the middle "recipe" area, paste your text into the input box, and the result appears in the output box straight away (a feature called Auto Bake). You can stack several operations, and they run top to bottom \u2014 like steps in a recipe.</p>'
-+'<p class="body"><b>The Magic operation:</b> if you don\u2019t know how something is encoded, search for the <code class="inl">Magic</code> operation and drop it in \u2014 it tries to auto-detect the encoding and suggests how to decode it. A handy first thing to try on a mystery string.</p></div>'
++'<p class="body"><b>How it works:</b> search for an operation in the left panel, drag it into the middle recipe area, paste your text into the input box, and the result appears in the output. The <code class="inl">Magic</code> operation auto-detects unknown encodings and is a good first thing to try on a mystery string.</p></div>'
+
 +'<div class="define"><h4>What is ROT13?</h4>'
-+'<p>ROT13 is one of the simplest ciphers. It "rotates" each letter 13 places along the alphabet: A becomes N, B becomes O, and so on. Because the alphabet has 26 letters and 13 is exactly half, applying ROT13 a second time brings you back to the original \u2014 so the same operation both scrambles and unscrambles. It only affects letters; numbers and symbols are left alone.</p>'
-+'<p><b>In CyberChef:</b> search for <code class="inl">ROT13</code> in the operations list, drag it into the recipe, and paste your scrambled text into the input. The decoded text appears instantly. (If the text was rotated by some <i>other</i> amount, the <code class="inl">ROT13 Brute Force</code> operation tries every shift and shows all results so you can spot the one that reads sensibly.)</p></div>'
-+'<div class="define"><h4>Converting between bases in CyberChef</h4>'
-+'<p>CyberChef has ready-made operations for the number systems from the earlier stages \u2014 for example <code class="inl">From Hex</code> / <code class="inl">To Hex</code>, <code class="inl">From Binary</code> / <code class="inl">To Binary</code>, and <code class="inl">From Decimal</code>. Search for the one you need, drag it in, paste your value, and read the converted result. It saves doing the place-value arithmetic by hand.</p></div>'
-+'<div class="define"><h4>Turning hexadecimal into text (hex \u2192 ASCII)</h4>'
-+'<p><b>What ASCII is:</b> a standard table that maps numbers to characters \u2014 each number from 0 to 127 stands for a letter, digit, or symbol. For example 65 = <code class="inl">A</code>, 97 = <code class="inl">a</code>, and 32 = a space. It\u2019s how a computer stores text as numbers underneath.</p>'
-+'<p><b>The link to hex:</b> one byte (two hex digits) is a number from 0 to 255, so each pair of hex digits can be looked up as one character. That means a run of hex is really a string of numbers \u2014 and those numbers can spell out text. Worked example: <code class="inl">48 65 6C 6C 6F</code> is five bytes \u2192 the numbers 72, 101, 108, 108, 111 \u2192 the characters <code class="inl">H e l l o</code> \u2192 the word <b>Hello</b>.</p>'
-+'<p><b>The method by hand:</b> take the hex two digits at a time, convert each pair to its decimal value (the same place-value step from the hexadecimal stage \u2014 left digit \u00d716 + right digit), then look that number up in ASCII to get its character. String the characters together to read the message.</p>'
-+'<p><b>The easy way:</b> CyberChef\u2019s <code class="inl">From Hex</code> operation does it instantly \u2014 paste the hex, read the text out. The <code class="inl">Magic</code> operation often spots hex-as-text automatically too. Hex \u2192 text is one of the most common conversions in CTFs.</p>'
-+'<p><b>One caveat:</b> not every hex string is text. If the bytes don\u2019t fall in the readable range, converting to ASCII gives gibberish \u2014 which is itself a useful clue that the data is something else (an image, encrypted data, and so on) rather than a message to read.</p></div>'
++'<p>ROT13 rotates each letter 13 places along the alphabet. Because the alphabet has 26 letters, applying it twice returns the original \u2014 the same operation both scrambles and unscrambles. It only affects letters; numbers and symbols are left alone.</p>'
++'<p><b>In CyberChef:</b> search for <code class="inl">ROT13</code> and drag it into the recipe. If the shift isn\u2019t 13, use <code class="inl">ROT13 Brute Force</code> to try all 26 shifts at once and spot the one that reads sensibly.</p></div>'
+
 +'<div class="define"><h4>What is Base64?</h4>'
-+'<p>Base64 is a way of rewriting any data \u2014 text, an image, raw bytes \u2014 using only 64 safe characters: <code class="inl">A\u2013Z</code>, <code class="inl">a\u2013z</code>, <code class="inl">0\u20139</code>, and <code class="inl">+</code> and <code class="inl">/</code>, sometimes with <code class="inl">=</code> padding at the end.</p>'
-+'<p><b>Why it\u2019s needed:</b> many systems were built to carry only plain text (email is the classic case). Raw data like a photo or a file contains byte values those systems can\u2019t handle \u2014 they get corrupted or dropped in transit. Base64 rewrites the data using only characters every text system understands, so it travels safely and the receiver can rebuild the original. When you attach a file to an email, this is happening behind the scenes.</p>'
-+'<p><b>It is encoding, not encryption \u2014 it hides nothing.</b> Encryption uses a key to keep data secret; Base64 has no key and provides no secrecy at all. Anyone can decode it instantly, because the rules are public. It changes the data\u2019s <i>form</i>, never protects it. So when you spot Base64, treat it as merely <i>wrapped</i>, not secured \u2014 just decode it and read what\u2019s inside. (A real system trying to "hide" a secret with only Base64 would be a security flaw \u2014 the kind a CTF might ask you to find.)</p>'
-+'<p><b>You can usually recognise it</b> by its run of letters and digits, often ending in one or two <code class="inl">=</code> signs.</p>'
-+'<p><b>Decoding it in CyberChef:</b> search for the <code class="inl">From Base64</code> operation, drag it into the recipe, and paste the encoded text into the input. The decoded result appears in the output.</p></div>'
-+'<div class="card"><h3>Try it yourself: decode this Base64 string</h3>'
-+'<p class="body" style="margin-top:0">Put what you\u2019ve just read into practice. Decode this with the <code class="inl">From Base64</code> operation in CyberChef:</p>'
-+'<p style="text-align:center"><code class="inl" style="font-size:1.05em">eW91X2NyYWNrZWRfaXQ=</code></p>'
-+'<p class="body"><b>Steps:</b> open CyberChef, search for <code class="inl">From Base64</code>, drag it into the recipe, then paste the string above into the input box. The decoded message appears in the output. (Notice the single <code class="inl">=</code> at the end \u2014 that\u2019s the padding character mentioned above. If you decoded it right, the message tells you so.)</p></div>'
-+'<div class="footnote">This page is a reference \u2014 it doesn\u2019t award XP or need completing. More hints will be added over time. External tools (picoCTF, CyberChef) are third-party resources, linked for convenience and not affiliated with this trainer.</div>';
++'<p>Base64 rewrites any data using 64 safe characters (<code class="inl">A\u2013Z</code>, <code class="inl">a\u2013z</code>, <code class="inl">0\u20139</code>, <code class="inl">+</code>, <code class="inl">/</code>) so it can travel through text-only systems without corruption. It is <b>encoding, not encryption</b> \u2014 it hides nothing and anyone can decode it instantly. Recognise it by its run of letters and digits, often ending in one or two <code class="inl">=</code> signs.</p>'
++'<p><b>In CyberChef:</b> use the <code class="inl">From Base64</code> operation. Try it now \u2014 decode <code class="inl">eW91X2NyYWNrZWRfaXQ=</code> and the message tells you if you got it right.</p></div>'
+
++'<p class="body" style="font-weight:700;color:var(--amber);letter-spacing:.5px;text-transform:uppercase;font-size:12px;margin-top:24px">General Skills in CTFs I \u2014 Problem Set 1</p>'
+
++'<div class="card"><h3>Let\u2019s Warm Up</h3>'
++'<p class="body" style="margin-top:0"><b>What it\u2019s testing:</b> Converting a single hex value to its ASCII character.</p>'
++'<p class="body"><b>The hint:</b> The puzzle gives you a value written as <code class="inl">0x70</code> \u2014 the <code class="inl">0x</code> means it\u2019s hexadecimal. Every character you can type has a number assigned to it under a standard called ASCII \u2014 for example, the letter <code class="inl">p</code> is number 112, which is <code class="inl">0x70</code> in hex. So converting a hex value to its ASCII character means: find what number this hex represents, then look up which character that number stands for. Use CyberChef\u2019s <code class="inl">From Hex</code> operation \u2014 it does both steps at once and shows you the character directly.</p></div>'
+
++'<div class="define"><h4>Turning hexadecimal into text (hex \u2192 ASCII)</h4>'
++'<p><b>What ASCII is:</b> a standard table mapping numbers to characters \u2014 65 = <code class="inl">A</code>, 97 = <code class="inl">a</code>, 32 = space. Each two-digit hex pair is one byte, which maps to one ASCII character.</p>'
++'<p><b>Worked example:</b> <code class="inl">48 65 6C 6C 6F</code> \u2192 the numbers 72, 101, 108, 108, 111 \u2192 the characters H, e, l, l, o \u2192 the word <b>Hello</b>. Use CyberChef\u2019s <code class="inl">From Hex</code> to do it instantly. Note: not every hex string is text \u2014 if the result is gibberish, the data is something else (an image, encrypted data, and so on).</p></div>'
+
++'<div class="card"><h3>Warmed Up</h3>'
++'<p class="body" style="margin-top:0"><b>What it\u2019s testing:</b> Converting a hex number to decimal.</p>'
++'<p class="body"><b>The hint:</b> The puzzle gives you a hex value like <code class="inl">0x3D</code>. In CyberChef, use the <code class="inl">From Base</code> operation and set the Radix to 16. The result is the decimal number to submit in the flag format.</p></div>'
+
++'<div class="card"><h3>2Warm</h3>'
++'<p class="body" style="margin-top:0"><b>What it\u2019s testing:</b> Converting a decimal number to binary.</p>'
++'<p class="body"><b>The hint:</b> The puzzle gives you a decimal number and asks for its binary equivalent. In CyberChef, use the <code class="inl">To Base</code> operation and set the Radix to 2. The binary number it outputs is your flag value.</p></div>'
+
++'<p class="body" style="font-weight:700;color:var(--amber);letter-spacing:.5px;text-transform:uppercase;font-size:12px;margin-top:24px">General Skills in CTFs I \u2014 Problem Set 2</p>'
+
++'<div class="card"><h3>Obedient Cat</h3>'
++'<p class="body" style="margin-top:0"><b>What it\u2019s testing:</b> Displaying a file\u2019s contents in the terminal.</p>'
++'<p class="body"><b>The hint:</b> Download the file by running <code class="inl">wget &lt;url&gt;</code> in the webshell, replacing <code class="inl">&lt;url&gt;</code> with the download link shown in the puzzle. Then run <code class="inl">cat &lt;filename&gt;</code> to print the file\u2019s contents to the screen. The flag is sitting there in plain text \u2014 nothing encoded or hidden.</p></div>'
+
++'<div class="card"><h3>Wave a Flag</h3>'
++'<p class="body" style="margin-top:0"><b>What it\u2019s testing:</b> Running a program with a command-line argument.</p>'
++'<p class="body"><b>The hint:</b> Download the file by running <code class="inl">wget &lt;url&gt;</code> in the webshell. Make it executable by running <code class="inl">chmod +x &lt;filename&gt;</code>, then run <code class="inl">./filename -h</code> to get the flag. The <code class="inl">-h</code> flag is how most programs show their help \u2014 and in this case it reveals the flag directly.</p></div>'
+
++'<div class="card"><h3>convertme.py</h3>'
++'<p class="body" style="margin-top:0"><b>What it\u2019s testing:</b> Running a Python script, then converting decimal to binary.</p>'
++'<p class="body"><b>The hint:</b> Download the file by running <code class="inl">wget &lt;url&gt;</code> in the webshell, then run <code class="inl">python3 convertme.py</code> to start the script. It gives you a decimal number and asks for its binary equivalent \u2014 use the same <code class="inl">To Base</code> approach from 2Warm, or calculate it using the binary method from the trainer. Type the binary number when prompted.</p></div>'
+
++'<div class="card"><h3>What\u2019s a net cat?</h3>'
++'<p class="body" style="margin-top:0"><b>What it\u2019s testing:</b> Making a basic netcat connection to a server.</p>'
++'<p class="body"><b>The hint:</b> The puzzle gives you a hostname and port number. Run <code class="inl">nc &lt;hostname&gt; &lt;portnumber&gt;</code> in the webshell. The flag arrives as soon as you connect \u2014 no further steps needed.</p></div>'
+
++'<p class="body" style="font-weight:700;color:var(--amber);letter-spacing:.5px;text-transform:uppercase;font-size:12px;margin-top:24px">General Skills in CTFs II \u2014 Problem Set 1</p>'
+
++'<div class="card"><h3>Nice netcat\u2026</h3>'
++'<p class="body" style="margin-top:0"><b>What it\u2019s testing:</b> Netcat connection plus converting a stream of decimal numbers to ASCII text.</p>'
++'<p class="body"><b>The hint:</b> Run <code class="inl">nc &lt;hostname&gt; &lt;portnumber&gt;</code> in the webshell using the address shown in the puzzle. The server responds with a long list of numbers \u2014 these are decimal ASCII codes, where each number is a character\u2019s position in the ASCII table. Copy the output and paste it into CyberChef\u2019s <code class="inl">From Decimal</code> operation to convert the whole stream at once. The result is the flag.</p></div>'
+
++'<div class="define"><h4>Converting between bases in CyberChef</h4>'
++'<p>CyberChef has ready-made operations for all the number systems from the earlier stages. Search for the one you need, drag it into the recipe, paste your value, and read the result:</p>'
++'<p><code class="inl">From Decimal</code> \u2014 decimal numbers to text (used in Nice netcat). <code class="inl">From Hex</code> / <code class="inl">To Hex</code> \u2014 hex to text and back. <code class="inl">From Binary</code> / <code class="inl">To Binary</code> \u2014 binary to text and back. <code class="inl">From Base</code> \u2014 any base; set the Radix to the base you want (e.g. 16 for hex, 2 for binary, 8 for octal).</p></div>'
+
++'<div class="card"><h3>Tab, Tab, Attack</h3>'
++'<p class="body" style="margin-top:0"><b>What it\u2019s testing:</b> Unzipping a file and navigating a deep folder structure using Tab autocomplete.</p>'
++'<p class="body"><b>The hint:</b> Download the file with <code class="inl">wget &lt;url&gt;</code>, then unzip it by running <code class="inl">unzip &lt;filename&gt;</code> in the webshell. Inside is a deeply nested set of folders with one file at the bottom. Use <code class="inl">cd &lt;foldername&gt;</code> to navigate in, pressing Tab to autocomplete the long folder names so you don\u2019t have to type them in full. When you reach the file, run <code class="inl">strings &lt;filename&gt; | grep pico</code> to extract the flag.</p></div>'
+
++'<div class="card"><h3>Python Wrangling</h3>'
++'<p class="body" style="margin-top:0"><b>What it\u2019s testing:</b> Reading a Python script to understand its arguments, then running it to decrypt a file.</p>'
++'<p class="body"><b>The hint:</b> Download all three files by running <code class="inl">wget &lt;url&gt;</code> for each link in the puzzle. Run <code class="inl">cat ende.py</code> in the webshell to read the script \u2014 it runs in two modes, <code class="inl">-e</code> to encrypt and <code class="inl">-d</code> to decrypt. Run <code class="inl">python3 ende.py -d flag.txt.en pw.txt</code> to decrypt the flag file using the password file. The flag prints to the screen.</p></div>'
+
++'<div class="card"><h3>Magikarp Ground Mission</h3>'
++'<p class="body" style="margin-top:0"><b>What it\u2019s testing:</b> SSH login, then navigating a remote machine to find a flag split across multiple files.</p>'
++'<p class="body"><b>The hint:</b> Copy the SSH command from the puzzle and paste it into the webshell, entering the password shown in the puzzle description when prompted. Once logged in, run <code class="inl">ls</code> to see what\u2019s there and <code class="inl">cat &lt;filename&gt;</code> to read each file. Each file tells you where to find the next piece \u2014 follow the instructions, navigating with <code class="inl">cd &lt;path&gt;</code> as needed, until you have all three parts of the flag. Assemble them in order to form the complete flag.</p></div>'
+
++'<p class="body" style="font-weight:700;color:var(--amber);letter-spacing:.5px;text-transform:uppercase;font-size:12px;margin-top:24px">General Skills in CTFs II \u2014 Problem Set 2</p>'
+
++'<div class="card"><h3>First Grep</h3>'
++'<p class="body" style="margin-top:0"><b>What it\u2019s testing:</b> Searching a large text file for a specific pattern.</p>'
++'<p class="body"><b>The hint:</b> Download the file by running <code class="inl">wget &lt;url&gt;</code> in the webshell. It contains far too much text to read manually. Run <code class="inl">grep pico &lt;filename&gt;</code> to search for the flag format directly \u2014 it prints only the matching line.</p></div>'
+
++'<div class="card"><h3>First Find</h3>'
++'<p class="body" style="margin-top:0"><b>What it\u2019s testing:</b> Finding a specific file buried in a directory structure.</p>'
++'<p class="body"><b>The hint:</b> The puzzle gives you a folder to work in. Run <code class="inl">find . -name "&lt;filename&gt;"</code> in the webshell, replacing <code class="inl">&lt;filename&gt;</code> with the name the puzzle tells you to look for. Once you see the path in the output, run <code class="inl">cat &lt;path&gt;</code> to read the flag.</p></div>'
+
++'<div class="card"><h3>Big Zip</h3>'
++'<p class="body" style="margin-top:0"><b>What it\u2019s testing:</b> Searching across many files inside a large zip archive.</p>'
++'<p class="body"><b>The hint:</b> Download the archive with <code class="inl">wget &lt;url&gt;</code>, then run <code class="inl">unzip &lt;filename&gt;</code> in the webshell to extract it. Inside are many files across many folders \u2014 too many to open one by one. Run <code class="inl">grep -r pico .</code> to search recursively through all of them at once. It prints the file path and the line containing the flag.</p></div>'
+
++'<p class="body" style="font-weight:700;color:var(--amber);letter-spacing:.5px;text-transform:uppercase;font-size:12px;margin-top:24px">General Skills in CTFs II \u2014 Problem Set 3</p>'
+
++'<div class="card"><h3>Static ain\u2019t always noise</h3>'
++'<p class="body" style="margin-top:0"><b>What it\u2019s testing:</b> Running a bash script to analyse a binary, then searching the output.</p>'
++'<p class="body"><b>The hint:</b> Download both files with <code class="inl">wget &lt;url&gt;</code> for each. Run <code class="inl">chmod +x ltdis.sh</code> in the webshell to make the script executable, then run <code class="inl">./ltdis.sh static</code> to analyse the binary. It produces an output file in the same folder. Run <code class="inl">grep pico &lt;outputfilename&gt;</code> on that file to find the flag.</p></div>'
+
++'<div class="card"><h3>Strings it</h3>'
++'<p class="body" style="margin-top:0"><b>What it\u2019s testing:</b> Extracting readable text from a binary file without running it.</p>'
++'<p class="body"><b>The hint:</b> Download the binary by running <code class="inl">wget &lt;url&gt;</code> in the webshell. Then run <code class="inl">strings &lt;filename&gt; | grep pico</code> \u2014 <code class="inl">strings</code> pulls all readable text out of the binary, and <code class="inl">grep</code> filters it down to the line containing the flag.</p></div>'
+
++'<div class="card"><h3>Plumbing</h3>'
++'<p class="body" style="margin-top:0"><b>What it\u2019s testing:</b> Piping netcat output through grep to filter a large stream of text.</p>'
++'<p class="body"><b>The hint:</b> Run <code class="inl">nc &lt;hostname&gt; &lt;portnumber&gt; | grep pico</code> in the webshell, using the address shown in the puzzle. The <code class="inl">|</code> pipes the server\u2019s output directly into <code class="inl">grep</code>, which filters it down to just the line containing the flag.</p></div>'
+
++'<div class="footnote">This page is a reference \u2014 it doesn\u2019t award XP or need completing. External tools (CyberChef, CyLab Security Academy, picoCTF webshell) are third-party resources, not affiliated with this trainer.</div>';
 INIT.hints=()=>{};
+
 
 /* ===================== COMMAND CHEAT SHEET (reference page \u2014 not graded) ===================== */
 LESSONS.cheatsheet=()=>
@@ -1003,7 +1071,8 @@ LESSONS.cheatsheet=()=>
 +'<div class="cmd-row"><code>ls</code><span>list files here. <code class="inl">ls -l</code> shows details; <code class="inl">ls -a</code> includes hidden files (flags often hide in these)</span></div>'
 +'<div class="cmd-row"><code>cd</code><span>change folder. <code class="inl">cd ..</code> goes up one level; <code class="inl">cd ~</code> goes home</span></div>'
 +'<div class="cmd-row"><code>cat FILE</code><span>print a whole file\u2019s contents on screen</span></div>'
-+'<div class="cmd-row"><code>file FILE</code><span>identify what kind of file something is \u2014 a common first move on a mystery file</span></div></div>'
++'<div class="cmd-row"><code>file FILE</code><span>identify what kind of file something is \u2014 a common first move on a mystery file</span></div>'
++'<div class="cmd-row"><code>find . -name "FILE"</code><span>search for a file by name across all folders from the current location. Replace <code class="inl">FILE</code> with the filename to find</span></div></div>'
 +'<div class="card"><h3>Reading &amp; searching</h3>'
 +'<div class="cmd-row"><code>grep TEXT FILE</code><span>search for text inside a file. <code class="inl">grep -r TEXT .</code> searches a whole folder \u2014 great for hunting a flag</span></div>'
 +'<div class="cmd-row"><code>head FILE</code><span>show the first few lines of a file</span></div>'
@@ -1036,11 +1105,6 @@ LESSONS.cheatsheet=()=>
 +'<div class="card"><h3>Browser shortcuts (for web challenges)</h3>'
 +'<div class="cmd-row"><code>Ctrl + U</code><span>View Page Source \u2014 see the raw HTML behind a web page</span></div>'
 +'<div class="cmd-row"><code>F12 / Ctrl + Shift + I</code><span>open Developer Tools (Inspect) \u2014 view live HTML/CSS, plus the loaded CSS and JavaScript files</span></div></div>'
-+'<div class="define"><h4>Heads-up: copy/paste keys differ in a browser shell</h4>'
-+'<p>The shortcuts above are for a <b>normal terminal on your computer</b>. A <b>browser-based shell</b> (like the picoCTF webshell on the hints page) can behave differently, because the browser grabs some keys first. The big one to know:</p>'
-+'<p>In a <b>normal terminal</b>, <code class="inl">Ctrl + C</code> <i>interrupts</i> \u2014 it stops (and can kill) whatever is running; it does <b>not</b> copy. To copy there you use <code class="inl">Ctrl + Shift + C</code>.</p>'
-+'<p>In a <b>browser shell</b>, you may find the opposite: <code class="inl">Ctrl + C</code> <i>copies</i> selected text, while <code class="inl">Ctrl + Shift + C</code> does nothing. (<code class="inl">Ctrl + Shift + V</code> to paste usually works in both.)</p>'
-+'<p>So if you\u2019re on a real machine and a program suddenly dies when you meant to copy, that\u2019s <code class="inl">Ctrl + C</code> doing its real job. When in doubt, select text with the mouse and use the right-click menu \u2014 that works almost everywhere.</p></div>'
 +'<div class="footnote">This page is a reference \u2014 it doesn\u2019t award XP or need completing. Keyboard shortcuts can vary between terminals and operating systems (for example, on a Mac the copy/paste keys differ again), but the ones above work in most common Linux terminals. More commands will be added over time.</div>';
 INIT.cheatsheet=()=>{};
 
